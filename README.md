@@ -35,6 +35,47 @@ Past Posts
   -> Improve Future Drafts
 ```
 
+## Current Backend Flow
+
+```mermaid
+flowchart TD
+    A[Create Creator Profile] --> B[Import Past Posts]
+    B --> C[ManualImportConnector]
+    C --> D[Normalize Text]
+    D --> E[Deduplicate Posts]
+    E --> F[(SQLite: Imported Posts)]
+
+    F --> G[Analyze Style]
+    G --> H[Style Engine]
+    H --> I{OpenAI API Key?}
+    I -->|Yes| J[LLM Style Extraction]
+    I -->|No| K[Heuristic Style Fallback]
+    J --> L[(SQLite: Style Profile)]
+    K --> L
+
+    L --> M[Draft Request]
+    F --> N[Retrieve Representative Examples]
+    M --> O[Draft Engine]
+    N --> O
+    O --> P{OpenAI API Key?}
+    P -->|Yes| Q[Generate 3 Draft Variants]
+    P -->|No| R[Heuristic Draft Fallback]
+    Q --> S[(SQLite: Draft History)]
+    R --> S
+
+    S --> T[User Reviews / Edits / Rates]
+    T --> U[(SQLite: Feedback)]
+```
+
+## Current Implementation
+
+- FastAPI app with profile, import, style-analysis, draft-generation, and feedback routes.
+- SQLModel/SQLite persistence for creators, imported posts, style profiles, and draft history.
+- Manual import connector that accepts pasted text, CSV, or JSON.
+- Placeholder X and Instagram OAuth connectors for future live social imports.
+- OpenAI wrapper with local heuristic fallbacks when no API key is configured.
+- Prompt builders for style extraction and platform-aware draft generation.
+
 ## V1 Scope
 
 - Local personal tool.
