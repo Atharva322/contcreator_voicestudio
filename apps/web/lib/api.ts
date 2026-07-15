@@ -1,4 +1,11 @@
-import type { CreatorProfile, Draft, DraftFormat, Platform, StyleProfile } from "@/types/api";
+import type {
+  CreatorProfile,
+  Draft,
+  DraftFormat,
+  ImportedPost,
+  Platform,
+  StyleProfile,
+} from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -46,9 +53,28 @@ export function importPosts(
   });
 }
 
+export function listImportedPosts(creatorId: number) {
+  return request<ImportedPost[]>(`/api/profiles/${creatorId}/imports`);
+}
+
 export function analyzeStyle(creatorId: number) {
   return request<StyleProfile>(`/api/profiles/${creatorId}/style/analyze`, {
     method: "POST",
+  });
+}
+
+export function listDrafts(creatorId: number) {
+  return request<Draft[]>(`/api/profiles/${creatorId}/drafts`);
+}
+
+export function updateDraftFeedback(
+  creatorId: number,
+  draftId: number,
+  payload: { selected_text?: string; rating?: number; feedback?: string },
+) {
+  return request<Draft>(`/api/profiles/${creatorId}/drafts/${draftId}/feedback`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 

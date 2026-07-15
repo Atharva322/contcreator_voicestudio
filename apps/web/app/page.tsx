@@ -7,9 +7,12 @@ import {
   createProfile,
   getStyle,
   importPosts,
+  listDrafts,
+  listImportedPosts,
   listProfiles,
+  updateDraftFeedback,
 } from "@/lib/api";
-import type { CreatorProfile, Draft, DraftFormat, Platform, StyleProfile } from "@/types/api";
+import type { CreatorProfile, Draft, DraftFormat, ImportedPost, Platform, StyleProfile } from "@/types/api";
 
 const samplePosts = `Building a content system is less about posting more and more about making your point impossible to miss.
 
@@ -26,6 +29,10 @@ export default function Home() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [style, setStyle] = useState<StyleProfile | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [importedPosts, setImportedPosts] = useState<ImportedPost[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<Record<number, string>>({});
+  const [feedbackNotes, setFeedbackNotes] = useState<Record<number, string>>({});
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -55,6 +62,12 @@ export default function Home() {
     () => profiles.find((profile) => profile.id === activeId) || null,
     [profiles, activeId],
   );
+  const hasProfile = Boolean(activeId);
+  const hasEnoughPosts = importedPosts.length >= 3;
+  const hasStyle = Boolean(style);
+  const canImportPosts = hasProfile && importForm.raw_posts.trim().length > 0;
+  const canAnalyzeStyle = hasProfile && hasEnoughPosts;
+  const canGenerateDraft = hasProfile && hasStyle && draftForm.topic.trim().length > 0;
 
   useEffect(() => {
     refreshProfiles();
@@ -66,7 +79,7 @@ export default function Home() {
       setProfiles(data);
       if (!activeId && data.length) {
         setActiveId(data[0].id);
-        refreshStyle(data[0].id);
+        refreshWorkspace(data[0].id);
       }
     } catch (err) {
       setError(messageFromError(err));
@@ -82,6 +95,30 @@ export default function Home() {
     }
   }
 
+  async function refreshWorkspace(creatorId: number) {
+    refreshStyle(creatorId);
+    refreshImportedPosts(creatorId);
+    refreshDrafts(creatorId);
+  }
+
+  async function refreshImportedPosts(creatorId: number) {
+    try {
+      const data = await listImportedPosts(creatorId);
+      setImportedPosts(data);
+    } catch {
+      setImportedPosts([]);
+    }
+  }
+
+  async function refreshDrafts(creatorId: number) {
+    try {
+      const data = await listDrafts(creatorId);
+      setDrafts(data);
+    } catch {
+      setDrafts([]);
+    }
+  }
+
   async function handleCreateProfile() {
     runAction(async () => {
       const profile = await createProfile({
@@ -92,6 +129,8 @@ export default function Home() {
       setActiveId(profile.id);
       setStyle(null);
       setDraft(null);
+      setDrafts([]);
+      setImportedPosts([]);
       setStatus("Creator profile created. Import at least 3 posts next.");
     });
   }
@@ -104,6 +143,7 @@ export default function Home() {
         raw_posts: importForm.raw_posts,
         source: "manual",
       });
+      await refreshImportedPosts(activeId);
       setStatus(`Imported ${result.imported} posts. Skipped ${result.skipped} duplicates/empty posts.`);
     });
   }
@@ -122,7 +162,34 @@ export default function Home() {
     runAction(async () => {
       const data = await createDraft(activeId, draftForm);
       setDraft(data);
+      await refreshDrafts(activeId);
       setStatus("Generated 3 draft variants.");
+    });
+  }
+
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("Copied draft to clipboard.");
+    } catch {
+      setError("Copy failed. Select the text manually this time — the clipboard gremlin won.");
+    }
+  }
+
+  async function handleFeedback(draftItem: Draft, rating: number) {
+    if (!activeId) return setError("Create or select a profile first.");
+    const selectedText = selectedVariant[draftItem.id] || draftItem.variants[0]?.text || "";
+    runAction(async () => {
+      const updated = await updateDraftFeedback(activeId, draftItem.id, {
+        selected_text: selectedText,
+        rating,
+        feedback: feedbackNotes[draftItem.id] || "",
+      });
+      setDrafts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      if (draft?.id === updated.id) {
+        setDraft(updated);
+      }
+      setStatus(`Saved ${rating}/5 feedback for this draft.`);
     });
   }
 
@@ -140,7 +207,7 @@ export default function Home() {
   function selectProfile(profileId: number) {
     setActiveId(profileId);
     setDraft(null);
-    refreshStyle(profileId);
+    refreshWorkspace(profileId);
   }
 
   return (
@@ -171,6 +238,14 @@ export default function Home() {
           <div className="stat">
             <strong>{style ? "Ready" : "Train"}</strong>
             <span className="muted">voice profile status</span>
+          </div>
+          <div className="stat">
+            <strong>{importedPosts.length}</strong>
+            <span className="muted">imported examples</span>
+          </div>
+          <div className="stat">
+            <strong>{drafts.length}</strong>
+            <span className="muted">saved drafts</span>
           </div>
         </aside>
       </section>
@@ -264,18 +339,43 @@ export default function Home() {
               onChange={(event) => setImportForm({ ...importForm, raw_posts: event.target.value })}
             />
             <div className="row">
-              <button className="button" onClick={handleImportPosts}>
+              <button className="button" disabled={!canImportPosts} onClick={handleImportPosts}>
                 Import posts
               </button>
-              <button className="button secondary" onClick={handleAnalyzeStyle}>
+              <button className="button secondary" disabled={!canAnalyzeStyle} onClick={handleAnalyzeStyle}>
                 Analyze voice
               </button>
+            </div>
+            {!hasProfile && <p className="tiny">Create or select a profile before importing posts.</p>}
+            {hasProfile && !hasEnoughPosts && (
+              <p className="tiny">Import at least 3 posts before analyzing the voice profile.</p>
+            )}
+            <div className="mini-list">
+              <div className="row between">
+                <strong>Recent imported posts</strong>
+                <span className="tiny muted">{importedPosts.length} total</span>
+              </div>
+              {importedPosts.length === 0 && (
+                <p className="tiny">Imported examples will appear here after you add posts.</p>
+              )}
+              {importedPosts.slice(0, 3).map((post) => (
+                <article className="mini-card" key={post.id}>
+                  <span className="tag">{post.platform}</span>
+                  <p>{post.text}</p>
+                </article>
+              ))}
             </div>
           </section>
 
           <section className="panel stack" id="voice">
             <h2>3. Learned Voice</h2>
-            {!style && <p>Analyze at least 3 imported posts to generate a visible voice profile.</p>}
+            {!style && (
+              <p>
+                {hasEnoughPosts
+                  ? "Ready to analyze. Use the Analyze voice button after importing."
+                  : "Analyze at least 3 imported posts to generate a visible voice profile."}
+              </p>
+            )}
             {style && (
               <>
                 <p>{style.summary}</p>
@@ -349,20 +449,102 @@ export default function Home() {
                 />
               </div>
             </div>
-            <button className="button" onClick={handleCreateDraft}>
+            <button className="button" disabled={!canGenerateDraft} onClick={handleCreateDraft}>
               Generate variants
             </button>
+            {!hasProfile && <p className="tiny">Create or select a profile before generating drafts.</p>}
+            {hasProfile && !hasStyle && (
+              <p className="tiny">Analyze the creator voice before generating draft variants.</p>
+            )}
             {draft && (
               <div className="drafts">
                 {draft.variants.map((variant) => (
                   <article className="draft-card" key={variant.label}>
-                    <strong>{variant.label}</strong>
+                    <div className="row between">
+                      <strong>{variant.label}</strong>
+                      <button className="button compact secondary" onClick={() => handleCopy(variant.text)}>
+                        Copy
+                      </button>
+                    </div>
                     <pre>{variant.text}</pre>
                     <p className="tiny">{variant.rationale}</p>
                   </article>
                 ))}
               </div>
             )}
+          </section>
+
+          <section className="panel stack">
+            <h2>5. Draft History + Feedback</h2>
+            {drafts.length === 0 && (
+              <p>Generated drafts will appear here so you can copy, review, and rate them.</p>
+            )}
+            <div className="drafts">
+              {drafts.map((draftItem) => (
+                <article className="draft-card" key={draftItem.id}>
+                  <div className="row between">
+                    <div>
+                      <strong>{draftItem.topic}</strong>
+                      <div className="tiny muted">
+                        {draftItem.platform} · {draftItem.draft_format} ·{" "}
+                        {new Date(draftItem.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    {draftItem.rating && <span className="tag">{draftItem.rating}/5</span>}
+                  </div>
+                  <div className="field">
+                    <label>Best variant</label>
+                    <select
+                      value={selectedVariant[draftItem.id] || draftItem.variants[0]?.text || ""}
+                      onChange={(event) =>
+                        setSelectedVariant({
+                          ...selectedVariant,
+                          [draftItem.id]: event.target.value,
+                        })
+                      }
+                    >
+                      {draftItem.variants.map((variant) => (
+                        <option key={variant.label} value={variant.text}>
+                          {variant.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <pre>{selectedVariant[draftItem.id] || draftItem.variants[0]?.text || ""}</pre>
+                  <div className="row">
+                    <button
+                      className="button compact secondary"
+                      onClick={() => handleCopy(selectedVariant[draftItem.id] || draftItem.variants[0]?.text || "")}
+                    >
+                      Copy selected
+                    </button>
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        className={`rating ${draftItem.rating === rating ? "active" : ""}`}
+                        key={rating}
+                        onClick={() => handleFeedback(draftItem, rating)}
+                      >
+                        {rating}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="field">
+                    <label>Feedback notes</label>
+                    <textarea
+                      className="small-textarea"
+                      placeholder="What worked? What felt off?"
+                      value={feedbackNotes[draftItem.id] ?? draftItem.feedback ?? ""}
+                      onChange={(event) =>
+                        setFeedbackNotes({
+                          ...feedbackNotes,
+                          [draftItem.id]: event.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
           </section>
         </div>
       </section>
