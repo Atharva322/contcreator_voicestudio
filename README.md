@@ -105,6 +105,24 @@ npm run dev:web
 
 Then open `http://localhost:3000`.
 
+### One-command local launcher on Windows
+
+```powershell
+npm run dev:local
+```
+
+This opens separate API and web terminals. Keep both running while using the demo.
+
+### Optional demo seed
+
+With the API running, seed a demo creator, imported posts, learned style profile, and one draft:
+
+```bash
+npm run demo:seed
+```
+
+After seeding, refresh the web app and select `Demo Creator`.
+
 ## V1 Scope
 
 - Local personal tool.

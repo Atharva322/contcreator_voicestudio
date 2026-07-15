@@ -6,6 +6,9 @@
     "dev:web": "npm --prefix apps/web run dev",
     "build:web": "npm --prefix apps/web run build",
     "lint:web": "npm --prefix apps/web run lint",
-    "dev:api": "python -m uvicorn app.main:app --app-dir apps/api --reload --port 8000"
+    "typecheck:web": "npm --prefix apps/web run typecheck",
+    "dev:api": "python -m uvicorn app.main:app --app-dir apps/api --reload --port 8000",
+    "demo:seed": "python scripts/seed_demo.py",
+    "dev:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1"
   }
 }
