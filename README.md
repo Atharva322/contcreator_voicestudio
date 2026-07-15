@@ -75,6 +75,35 @@ flowchart TD
 - Placeholder X and Instagram OAuth connectors for future live social imports.
 - OpenAI wrapper with local heuristic fallbacks when no API key is configured.
 - Prompt builders for style extraction and platform-aware draft generation.
+- Next.js frontend shell for profile creation, post import, voice analysis, and draft generation.
+
+## Run Locally
+
+Install backend dependencies:
+
+```bash
+python -m pip install -r apps/api/requirements.txt
+```
+
+Install frontend dependencies:
+
+```bash
+npm --prefix apps/web install
+```
+
+Start the API:
+
+```bash
+npm run dev:api
+```
+
+Start the web app in a second terminal:
+
+```bash
+npm run dev:web
+```
+
+Then open `http://localhost:3000`.
 
 ## V1 Scope
 

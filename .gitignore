@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.db
+*.sqlite
+.env
+.env.local
+.DS_Store
