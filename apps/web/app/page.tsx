@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -23,6 +23,8 @@ Your caption should do three jobs:
 1. Stop the scroll
 2. Make the idea useful
 3. Give the reader a next step`;
+
+type StepStatus = "done" | "active" | "locked";
 
 export default function Home() {
   const [profiles, setProfiles] = useState<CreatorProfile[]>([]);
@@ -65,9 +67,11 @@ export default function Home() {
   const hasProfile = Boolean(activeId);
   const hasEnoughPosts = importedPosts.length >= 3;
   const hasStyle = Boolean(style);
+  const hasDrafts = drafts.length > 0;
   const canImportPosts = hasProfile && importForm.raw_posts.trim().length > 0;
   const canAnalyzeStyle = hasProfile && hasEnoughPosts;
   const canGenerateDraft = hasProfile && hasStyle && draftForm.topic.trim().length > 0;
+  const nextAction = getNextAction(hasProfile, hasEnoughPosts, hasStyle, hasDrafts);
 
   useEffect(() => {
     refreshProfiles();
@@ -131,7 +135,7 @@ export default function Home() {
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
-      setStatus("Creator profile created. Import at least 3 posts next.");
+      setStatus("Creator profile created. Add writing samples next.");
     });
   }
 
@@ -144,7 +148,7 @@ export default function Home() {
         source: "manual",
       });
       await refreshImportedPosts(activeId);
-      setStatus(`Imported ${result.imported} posts. Skipped ${result.skipped} duplicates/empty posts.`);
+      setStatus(`Imported ${result.imported} samples. Skipped ${result.skipped} duplicates or empty items.`);
     });
   }
 
@@ -153,7 +157,7 @@ export default function Home() {
     runAction(async () => {
       const data = await analyzeStyle(activeId);
       setStyle(data);
-      setStatus("Voice profile learned. Tiny wizard hat placed on the style engine.");
+      setStatus("Voice profile learned. Draft generation is ready.");
     });
   }
 
@@ -172,7 +176,7 @@ export default function Home() {
       await navigator.clipboard.writeText(text);
       setStatus("Copied draft to clipboard.");
     } catch {
-      setError("Copy failed. Select the text manually this time — the clipboard gremlin won.");
+      setError("Copy failed. Select the text manually this time.");
     }
   }
 
@@ -213,51 +217,54 @@ export default function Home() {
   return (
     <main className="shell">
       <section className="hero">
-        <div className="hero-card">
-          <div className="eyebrow">Local-first AI content assistant</div>
-          <h1>Creator Voice Studio</h1>
+        <div className="hero-copy">
+          <div className="eyebrow">Creator studio for voice-led drafting</div>
+          <h1>Turn writing samples into publish-ready drafts.</h1>
           <p>
-            Learn a creator&apos;s writing style from X and Instagram posts, inspect the voice
-            profile, then draft captions and scripts that sound less like a template goblin.
+            A guided local workspace for importing creator samples, learning the writing voice, and
+            drafting X posts, Instagram captions, and short scripts without pretending it can post for you.
           </p>
           <div className="hero-actions">
-            <a className="button" href="#composer">
-              Generate a draft
+            <a className="button" href="#draft">
+              Start drafting
             </a>
-            <a className="button secondary" href="#voice">
-              View voice profile
+            <a className="button secondary" href="#samples">
+              Add writing samples
             </a>
           </div>
         </div>
-        <aside className="hero-card stat-card">
-          <div className="eyebrow">Current build</div>
-          <div className="stat">
-            <strong>{profiles.length}</strong>
-            <span className="muted">creator profiles</span>
-          </div>
-          <div className="stat">
-            <strong>{style ? "Ready" : "Train"}</strong>
-            <span className="muted">voice profile status</span>
-          </div>
-          <div className="stat">
-            <strong>{importedPosts.length}</strong>
-            <span className="muted">imported examples</span>
-          </div>
-          <div className="stat">
-            <strong>{drafts.length}</strong>
-            <span className="muted">saved drafts</span>
+        <aside className="studio-card next-card">
+          <span className="tag warm">Next best action</span>
+          <h2>{nextAction.title}</h2>
+          <p>{nextAction.description}</p>
+          <div className="metric-grid">
+            <Metric label="Samples" value={importedPosts.length.toString()} />
+            <Metric label="Drafts" value={drafts.length.toString()} />
+            <Metric label="Voice" value={style ? "Ready" : "Pending"} />
           </div>
         </aside>
+      </section>
+
+      <section className="wizard-rail" aria-label="Creator Voice Studio progress">
+        <WizardStep index="01" label="Profile" status={hasProfile ? "done" : "active"} />
+        <WizardStep index="02" label="Samples" status={!hasProfile ? "locked" : hasEnoughPosts ? "done" : "active"} />
+        <WizardStep index="03" label="Analyze" status={!hasEnoughPosts ? "locked" : hasStyle ? "done" : "active"} />
+        <WizardStep index="04" label="Draft" status={!hasStyle ? "locked" : hasDrafts ? "done" : "active"} />
+        <WizardStep index="05" label="Review" status={!hasDrafts ? "locked" : "active"} />
       </section>
 
       {(status || error) && (
         <section className={`notice ${error ? "error" : ""}`}>{error || status}</section>
       )}
 
-      <section className="grid" style={{ marginTop: 24 }}>
-        <div className="stack">
-          <section className="panel stack">
-            <h2>1. Creator Profile</h2>
+      <section className="workspace">
+        <aside className="side-stack">
+          <section className="studio-card stack">
+            <div>
+              <span className="section-kicker">Step 01</span>
+              <h2>Creator profile</h2>
+              <p>Set the basic creative context for this local workspace.</p>
+            </div>
             <div className="field">
               <label>Name</label>
               <input
@@ -291,8 +298,11 @@ export default function Home() {
             </button>
           </section>
 
-          <section className="panel stack">
-            <h3>Profiles</h3>
+          <section className="studio-card stack">
+            <div className="row between">
+              <h3>Profiles</h3>
+              <span className="tag">{profiles.length}</span>
+            </div>
             <div className="profile-list">
               {profiles.length === 0 && <p>No profiles yet. Create one to begin.</p>}
               {profiles.map((profile) => (
@@ -302,97 +312,29 @@ export default function Home() {
                   onClick={() => selectProfile(profile.id)}
                 >
                   <strong>{profile.name}</strong>
-                  <div className="tiny muted">{profile.niche || "No niche yet"}</div>
+                  <span>{profile.niche || "No niche yet"}</span>
                 </button>
               ))}
             </div>
           </section>
-        </div>
+        </aside>
 
-        <div className="stack">
-          <section className="panel stack">
-            <h2>2. Import Posts</h2>
-            <p>
-              Paste posts separated by blank lines, or paste CSV/JSON with a text, caption, content,
-              or post field.
-            </p>
-            <div className="two-col">
-              <div className="field">
-                <label>Platform</label>
-                <select
-                  value={importForm.platform}
-                  onChange={(event) =>
-                    setImportForm({ ...importForm, platform: event.target.value as Platform })
-                  }
-                >
-                  <option value="x">X</option>
-                  <option value="instagram">Instagram</option>
-                </select>
+        <section className="main-stack">
+          <section className="studio-card draft-lab stack" id="draft">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Step 04 · Priority workspace</span>
+                <h2>Draft generation lab</h2>
+                <p>
+                  Once the profile and writing samples are ready, generate three draft directions and
+                  copy the strongest one into your real publishing workflow.
+                </p>
               </div>
-              <div className="field">
-                <label>Selected profile</label>
-                <input value={activeProfile?.name || "None"} readOnly />
-              </div>
+              <span className={`status-pill ${canGenerateDraft ? "ready" : ""}`}>
+                {canGenerateDraft ? "Ready" : "Needs voice"}
+              </span>
             </div>
-            <textarea
-              value={importForm.raw_posts}
-              onChange={(event) => setImportForm({ ...importForm, raw_posts: event.target.value })}
-            />
-            <div className="row">
-              <button className="button" disabled={!canImportPosts} onClick={handleImportPosts}>
-                Import posts
-              </button>
-              <button className="button secondary" disabled={!canAnalyzeStyle} onClick={handleAnalyzeStyle}>
-                Analyze voice
-              </button>
-            </div>
-            {!hasProfile && <p className="tiny">Create or select a profile before importing posts.</p>}
-            {hasProfile && !hasEnoughPosts && (
-              <p className="tiny">Import at least 3 posts before analyzing the voice profile.</p>
-            )}
-            <div className="mini-list">
-              <div className="row between">
-                <strong>Recent imported posts</strong>
-                <span className="tiny muted">{importedPosts.length} total</span>
-              </div>
-              {importedPosts.length === 0 && (
-                <p className="tiny">Imported examples will appear here after you add posts.</p>
-              )}
-              {importedPosts.slice(0, 3).map((post) => (
-                <article className="mini-card" key={post.id}>
-                  <span className="tag">{post.platform}</span>
-                  <p>{post.text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
 
-          <section className="panel stack" id="voice">
-            <h2>3. Learned Voice</h2>
-            {!style && (
-              <p>
-                {hasEnoughPosts
-                  ? "Ready to analyze. Use the Analyze voice button after importing."
-                  : "Analyze at least 3 imported posts to generate a visible voice profile."}
-              </p>
-            )}
-            {style && (
-              <>
-                <p>{style.summary}</p>
-                <div className="voice-grid">
-                  <VoiceTile title="Tone" value={style.tone} />
-                  <VoiceTile title="Hooks" value={style.hooks} />
-                  <VoiceTile title="Rhythm" value={style.rhythm} />
-                  <VoiceTile title="Vocabulary" value={style.vocabulary} />
-                  <VoiceTile title="Emoji / Hashtags" value={style.emoji_hashtag_habits} />
-                  <VoiceTile title="Avoid" value={style.avoid_rules} />
-                </div>
-              </>
-            )}
-          </section>
-
-          <section className="panel stack" id="composer">
-            <h2>4. Draft Composer</h2>
             <div className="two-col">
               <div className="field">
                 <label>Platform</label>
@@ -420,23 +362,26 @@ export default function Home() {
                 </select>
               </div>
             </div>
+
             <div className="field">
-              <label>Topic</label>
+              <label>Draft brief</label>
               <textarea
+                className="brief-textarea"
                 value={draftForm.topic}
                 onChange={(event) => setDraftForm({ ...draftForm, topic: event.target.value })}
               />
             </div>
+
             <div className="two-col">
               <div className="field">
-                <label>CTA</label>
+                <label>Call to action</label>
                 <input
                   value={draftForm.cta}
                   onChange={(event) => setDraftForm({ ...draftForm, cta: event.target.value })}
                 />
               </div>
               <div className="field">
-                <label>Creativity</label>
+                <label>Creativity: {Math.round(draftForm.creativity * 100)}%</label>
                 <input
                   max="1"
                   min="0"
@@ -449,17 +394,19 @@ export default function Home() {
                 />
               </div>
             </div>
-            <button className="button" disabled={!canGenerateDraft} onClick={handleCreateDraft}>
-              Generate variants
-            </button>
-            {!hasProfile && <p className="tiny">Create or select a profile before generating drafts.</p>}
-            {hasProfile && !hasStyle && (
-              <p className="tiny">Analyze the creator voice before generating draft variants.</p>
-            )}
+
+            <div className="row">
+              <button className="button jumbo" disabled={!canGenerateDraft} onClick={handleCreateDraft}>
+                Generate draft variants
+              </button>
+              {!hasProfile && <span className="hint">Create a profile first.</span>}
+              {hasProfile && !hasStyle && <span className="hint">Analyze the voice before drafting.</span>}
+            </div>
+
             {draft && (
-              <div className="drafts">
+              <div className="variant-grid">
                 {draft.variants.map((variant) => (
-                  <article className="draft-card" key={variant.label}>
+                  <article className="draft-card featured" key={variant.label}>
                     <div className="row between">
                       <strong>{variant.label}</strong>
                       <button className="button compact secondary" onClick={() => handleCopy(variant.text)}>
@@ -467,30 +414,106 @@ export default function Home() {
                       </button>
                     </div>
                     <pre>{variant.text}</pre>
-                    <p className="tiny">{variant.rationale}</p>
+                    <p>{variant.rationale}</p>
                   </article>
                 ))}
               </div>
             )}
           </section>
 
-          <section className="panel stack">
-            <h2>5. Draft History + Feedback</h2>
+          <section className="studio-card stack" id="samples">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Step 02 + 03</span>
+                <h2>Import writing samples</h2>
+                <p>
+                  Manual import only for now. Paste X or Instagram examples separated by blank lines,
+                  or use CSV/JSON fields like text, caption, content, or post.
+                </p>
+              </div>
+              <span className="status-pill">{importedPosts.length} samples</span>
+            </div>
+
+            <div className="two-col">
+              <div className="field">
+                <label>Sample source</label>
+                <select
+                  value={importForm.platform}
+                  onChange={(event) =>
+                    setImportForm({ ...importForm, platform: event.target.value as Platform })
+                  }
+                >
+                  <option value="x">X writing samples</option>
+                  <option value="instagram">Instagram captions</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Selected profile</label>
+                <input value={activeProfile?.name || "None"} readOnly />
+              </div>
+            </div>
+
+            <textarea
+              value={importForm.raw_posts}
+              onChange={(event) => setImportForm({ ...importForm, raw_posts: event.target.value })}
+            />
+
+            <div className="row">
+              <button className="button secondary" disabled={!canImportPosts} onClick={handleImportPosts}>
+                Import samples
+              </button>
+              <button className="button secondary" disabled={!canAnalyzeStyle} onClick={handleAnalyzeStyle}>
+                Analyze voice
+              </button>
+              {!hasEnoughPosts && <span className="hint">Need at least 3 samples to analyze.</span>}
+            </div>
+
+            <div className="mini-list">
+              <div className="row between">
+                <strong>Recent samples</strong>
+                <span className="muted">{importedPosts.length} total</span>
+              </div>
+              {importedPosts.length === 0 && (
+                <p>Imported writing samples will appear here after you add them.</p>
+              )}
+              {importedPosts.slice(0, 3).map((post) => (
+                <article className="mini-card" key={post.id}>
+                  <span className="tag">{post.platform}</span>
+                  <p>{post.text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="studio-card stack">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Step 05</span>
+                <h2>Feedback and draft history</h2>
+                <p>Review generated drafts, copy the strongest variant, and save a quick rating.</p>
+              </div>
+              <span className="status-pill">{drafts.length} drafts</span>
+            </div>
+
             {drafts.length === 0 && (
-              <p>Generated drafts will appear here so you can copy, review, and rate them.</p>
+              <div className="empty-state">
+                <strong>No drafts yet</strong>
+                <p>Generate variants above and they will be saved here for review.</p>
+              </div>
             )}
+
             <div className="drafts">
               {drafts.map((draftItem) => (
                 <article className="draft-card" key={draftItem.id}>
                   <div className="row between">
                     <div>
                       <strong>{draftItem.topic}</strong>
-                      <div className="tiny muted">
+                      <div className="muted">
                         {draftItem.platform} · {draftItem.draft_format} ·{" "}
                         {new Date(draftItem.created_at).toLocaleString()}
                       </div>
                     </div>
-                    {draftItem.rating && <span className="tag">{draftItem.rating}/5</span>}
+                    {draftItem.rating && <span className="tag warm">{draftItem.rating}/5</span>}
                   </div>
                   <div className="field">
                     <label>Best variant</label>
@@ -546,9 +569,53 @@ export default function Home() {
               ))}
             </div>
           </section>
-        </div>
+
+          <section className="studio-card compact-section" id="voice">
+            <div>
+              <span className="section-kicker">Voice profile</span>
+              <h2>Learned voice signals</h2>
+              {!style && <p>Voice insights appear after analysis. This stays secondary to drafting for now.</p>}
+            </div>
+            {style && (
+              <div className="voice-grid">
+                <VoiceTile title="Tone" value={style.tone} />
+                <VoiceTile title="Hooks" value={style.hooks} />
+                <VoiceTile title="Rhythm" value={style.rhythm} />
+                <VoiceTile title="Vocabulary" value={style.vocabulary} />
+                <VoiceTile title="Emoji / Hashtags" value={style.emoji_hashtag_habits} />
+                <VoiceTile title="Avoid" value={style.avoid_rules} />
+              </div>
+            )}
+          </section>
+        </section>
       </section>
     </main>
+  );
+}
+
+function WizardStep({
+  index,
+  label,
+  status,
+}: {
+  index: string;
+  label: string;
+  status: StepStatus;
+}) {
+  return (
+    <div className={`wizard-step ${status}`}>
+      <span>{index}</span>
+      <strong>{label}</strong>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="metric">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -556,9 +623,40 @@ function VoiceTile({ title, value }: { title: string; value: string }) {
   return (
     <div className="voice-tile">
       <strong>{title}</strong>
-      <span className="muted">{value}</span>
+      <span>{value}</span>
     </div>
   );
+}
+
+function getNextAction(hasProfile: boolean, hasEnoughPosts: boolean, hasStyle: boolean, hasDrafts: boolean) {
+  if (!hasProfile) {
+    return {
+      title: "Create a creator profile",
+      description: "Start by defining the creator, niche, audience, and content goal.",
+    };
+  }
+  if (!hasEnoughPosts) {
+    return {
+      title: "Import writing samples",
+      description: "Add at least three X posts or Instagram captions before analysis.",
+    };
+  }
+  if (!hasStyle) {
+    return {
+      title: "Analyze the voice",
+      description: "Convert samples into a reusable voice profile before drafting.",
+    };
+  }
+  if (!hasDrafts) {
+    return {
+      title: "Generate the first draft",
+      description: "Use the draft lab to produce three on-voice directions.",
+    };
+  }
+  return {
+    title: "Review and refine",
+    description: "Rate the strongest draft so the workflow captures your preferences.",
+  };
 }
 
 function messageFromError(error: unknown) {
