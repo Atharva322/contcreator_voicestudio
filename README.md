@@ -1,48 +1,66 @@
 # Creator Voice Studio
 
-Creator Voice Studio is a local-first web app for learning a brand or creator's writing style from past social posts, then drafting new captions, X posts, and short scripts in that same voice.
+Creator Voice Studio is a local-first creator workspace that learns a brand or creator's writing style from past posts, then helps draft X posts, Instagram captions, and short scripts in that voice.
 
-## Product Idea
+The app is designed as a polished SaaS-style demo, but runs locally for now. It uses manual imports in v1 and keeps OAuth/social publishing as future expansion.
 
-Most AI caption tools produce generic content. Creator Voice Studio is designed around a different workflow:
+## What It Does
 
-1. Import past posts from X or Instagram.
-2. Analyze the creator's voice, tone, formatting, hooks, CTAs, and recurring language.
-3. Build a visible style profile the user can inspect.
-4. Generate multiple draft options for new topics.
-5. Let the user edit, rate, and reuse the best drafts.
+- Create and manage creator/brand profiles.
+- Import writing samples manually from X or Instagram.
+- Normalize and deduplicate imported samples.
+- Analyze samples into a visible creator voice profile.
+- Generate three draft variants for a new topic.
+- Copy drafts, rate outputs, and save feedback notes.
+- Clear workspace data or delete a profile from the UI.
 
-The goal is not to replace the creator. The goal is to act like a personal content assistant that understands their style and helps them draft faster.
+The goal is not to replace the creator. The goal is to reduce blank-page friction while keeping the user in control of voice, edits, and publishing.
 
-## Planned Architecture
-
-- `apps/web` — polished Next.js frontend for profiles, imports, voice cards, and draft generation.
-- `apps/api` — FastAPI backend for profile management, post imports, style analysis, draft generation, and feedback.
-- `SQLite` — local storage for profiles, imported posts, learned style profiles, and generated drafts.
-- `OpenAI API` — style extraction and draft generation.
-- `ManualImportConnector` — paste, CSV, or JSON imports for v1.
-- `XConnector` and `InstagramConnector` — OAuth-ready connector placeholders for future live imports.
-
-## Core Workflow
+## Current Product Flow
 
 ```text
-Past Posts
-  -> Clean + Normalize
-  -> Learn Style Profile
-  -> Store Voice Traits + Examples
-  -> Generate Platform-Aware Drafts
-  -> User Edits + Feedback
-  -> Improve Future Drafts
+Create Profile
+  -> Import Writing Samples
+  -> Analyze Voice
+  -> Generate Draft Variants
+  -> Copy / Rate / Add Feedback
+  -> Reuse Draft History
 ```
+
+## Architecture
+
+```text
+apps/web   Next.js creator-studio frontend
+apps/api   FastAPI backend
+SQLite     Local persistence
+OpenAI     Optional style extraction and draft generation
+```
+
+### Backend
+
+- `FastAPI` API with profile, import, style, draft, feedback, and admin routes.
+- `SQLModel` + SQLite for local storage.
+- Manual import connector for pasted text, CSV, or JSON.
+- Placeholder X and Instagram connector classes for future OAuth work.
+- OpenAI wrapper with heuristic fallbacks when no API key is configured.
+
+### Frontend
+
+- Guided wizard layout: Profile -> Samples -> Analyze -> Draft -> Review.
+- Lighter futuristic creator-studio interface.
+- Draft generation prioritized as the main workspace.
+- Manual import only; no fake social connection cards yet.
+- Draft history, copy buttons, feedback notes, and 1-5 ratings.
+- Workspace admin controls for saving profiles, clearing workspace data, and deleting profiles.
 
 ## Current Backend Flow
 
 ```mermaid
 flowchart TD
-    A[Create Creator Profile] --> B[Import Past Posts]
+    A[Create Creator Profile] --> B[Import Writing Samples]
     B --> C[ManualImportConnector]
     C --> D[Normalize Text]
-    D --> E[Deduplicate Posts]
+    D --> E[Deduplicate Samples]
     E --> F[(SQLite: Imported Posts)]
 
     F --> G[Analyze Style]
@@ -63,19 +81,25 @@ flowchart TD
     Q --> S[(SQLite: Draft History)]
     R --> S
 
-    S --> T[User Reviews / Edits / Rates]
+    S --> T[User Reviews / Copies / Rates]
     T --> U[(SQLite: Feedback)]
 ```
 
-## Current Implementation
+## API Capabilities
 
-- FastAPI app with profile, import, style-analysis, draft-generation, and feedback routes.
-- SQLModel/SQLite persistence for creators, imported posts, style profiles, and draft history.
-- Manual import connector that accepts pasted text, CSV, or JSON.
-- Placeholder X and Instagram OAuth connectors for future live social imports.
-- OpenAI wrapper with local heuristic fallbacks when no API key is configured.
-- Prompt builders for style extraction and platform-aware draft generation.
-- Next.js frontend shell for profile creation, post import, voice analysis, and draft generation.
+- `GET /api/health` - health check.
+- `POST /api/profiles` - create a creator profile.
+- `GET /api/profiles` - list profiles.
+- `PATCH /api/profiles/{creator_id}` - update profile metadata.
+- `DELETE /api/profiles/{creator_id}/workspace` - clear imported samples, style profile, drafts, and feedback for a profile.
+- `DELETE /api/profiles/{creator_id}` - delete profile and related local data.
+- `POST /api/profiles/{creator_id}/imports` - import manual writing samples.
+- `GET /api/profiles/{creator_id}/imports` - list imported samples.
+- `POST /api/profiles/{creator_id}/style/analyze` - analyze imported samples into a style profile.
+- `GET /api/profiles/{creator_id}/style` - fetch the current style profile.
+- `POST /api/profiles/{creator_id}/drafts` - generate draft variants.
+- `GET /api/profiles/{creator_id}/drafts` - list draft history.
+- `PATCH /api/profiles/{creator_id}/drafts/{draft_id}/feedback` - save selected text, rating, and notes.
 
 ## Run Locally
 
@@ -103,42 +127,95 @@ Start the web app in a second terminal:
 npm run dev:web
 ```
 
-Then open `http://localhost:3000`.
+Open:
 
-### One-command local launcher on Windows
+```text
+http://localhost:3000
+```
+
+### One-command Windows launcher
 
 ```powershell
 npm run dev:local
 ```
 
-This opens separate API and web terminals. Keep both running while using the demo.
+This opens separate API and web terminals. Keep both running while using the app.
 
 ### Optional demo seed
 
-With the API running, seed a demo creator, imported posts, learned style profile, and one draft:
+With the API running, seed a demo creator, writing samples, learned style profile, and one draft:
 
 ```bash
 npm run demo:seed
 ```
 
-After seeding, refresh the web app and select `Demo Creator`.
+Refresh the web app and select `Demo Creator`.
+
+## Environment
+
+Backend environment file:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Frontend environment file:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Important variables:
+
+- `OPENAI_API_KEY` - optional; without it, local heuristic fallbacks are used.
+- `OPENAI_MODEL` - defaults to `gpt-4o-mini`.
+- `DATABASE_URL` - defaults to local SQLite.
+- `NEXT_PUBLIC_API_BASE_URL` - defaults to `http://localhost:8000`.
+
+## Tests and Validation
+
+Run backend tests:
+
+```bash
+$env:PYTHONPATH="apps/api"; pytest apps/api/tests -q
+```
+
+Run frontend typecheck:
+
+```bash
+npm --prefix apps/web run typecheck
+```
+
+Run frontend production build:
+
+```bash
+npm --prefix apps/web run build
+```
+
+Current backend tests cover:
+
+- Full profile -> import -> analyze -> draft -> feedback flow.
+- Style analysis requiring at least 3 samples.
+- Draft generation requiring an analyzed voice profile.
+- Profile edit, workspace clear, and profile delete admin actions.
 
 ## V1 Scope
 
-- Local personal tool.
-- Writing-style voice only.
-- Manual imports for X and Instagram content.
-- Draft generation for X posts, Instagram captions, and short scripts.
-- Copy/export workflow instead of direct publishing.
+- Local personal/SaaS-demo tool.
+- Writing-style voice only; no audio narration yet.
+- Manual X and Instagram sample imports.
+- Copy/export drafts only; no direct publishing.
+- OpenAI generation when configured, heuristic fallback otherwise.
 
-## Later Expansion
+## Future Expansion
 
 - Real OAuth import for X and Instagram.
 - Audio narration / text-to-speech.
 - Scheduling and publishing.
-- Brand guardrails and content approval flows.
+- Brand guardrails and content approval workflows.
+- Stronger style-analysis architecture with evidence, scoring, and retrieval decisions.
 - Multi-profile campaign workspace.
 
 ## Status
 
-Initial implementation in progress.
+Current state: runnable local demo shell with a polished guided frontend, FastAPI backend, SQLite persistence, admin controls, draft history, feedback loop, and regression tests.
