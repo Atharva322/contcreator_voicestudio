@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import CreatorCreate, CreatorProfile, CreatorRead, utc_now
+from app.models import CreatorCreate, CreatorProfile, CreatorRead, Draft, ImportedPost, StyleProfile, utc_now
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
@@ -55,6 +55,34 @@ def update_profile(
     session.commit()
     session.refresh(profile)
     return profile_to_read(profile)
+
+
+@router.delete("/{creator_id}/workspace", status_code=204)
+def clear_profile_workspace(creator_id: int, session: Session = Depends(get_session)) -> Response:
+    profile = session.get(CreatorProfile, creator_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Creator profile not found")
+    delete_workspace_records(session, creator_id)
+    session.commit()
+    return Response(status_code=204)
+
+
+@router.delete("/{creator_id}", status_code=204)
+def delete_profile(creator_id: int, session: Session = Depends(get_session)) -> Response:
+    profile = session.get(CreatorProfile, creator_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Creator profile not found")
+    delete_workspace_records(session, creator_id)
+    session.delete(profile)
+    session.commit()
+    return Response(status_code=204)
+
+
+def delete_workspace_records(session: Session, creator_id: int) -> None:
+    for model in (ImportedPost, StyleProfile, Draft):
+        records = session.exec(select(model).where(model.creator_id == creator_id)).all()
+        for record in records:
+            session.delete(record)
 
 
 def profile_to_read(profile: CreatorProfile) -> CreatorRead:

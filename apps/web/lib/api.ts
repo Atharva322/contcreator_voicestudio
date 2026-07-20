@@ -23,6 +23,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(error.detail || "Request failed");
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -30,16 +34,37 @@ export function listProfiles() {
   return request<CreatorProfile[]>("/api/profiles");
 }
 
-export function createProfile(payload: {
+export type ProfilePayload = {
   name: string;
   niche: string;
   audience: string;
   goals: string;
   platforms: Platform[];
-}) {
+};
+
+export function createProfile(payload: ProfilePayload) {
   return request<CreatorProfile>("/api/profiles", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function updateProfile(creatorId: number, payload: ProfilePayload) {
+  return request<CreatorProfile>(`/api/profiles/${creatorId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function clearProfileWorkspace(creatorId: number) {
+  return request<void>(`/api/profiles/${creatorId}/workspace`, {
+    method: "DELETE",
+  });
+}
+
+export function deleteProfile(creatorId: number) {
+  return request<void>(`/api/profiles/${creatorId}`, {
+    method: "DELETE",
   });
 }
 

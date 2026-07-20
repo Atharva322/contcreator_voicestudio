@@ -151,3 +151,47 @@ def test_draft_generation_requires_style_profile(client: TestClient) -> None:
 
     assert draft.status_code == 400
     assert "Analyze creator style" in draft.json()["detail"]
+
+
+def test_profile_admin_edit_clear_and_delete(client: TestClient) -> None:
+    creator = create_creator(client)
+    creator_id = creator["id"]
+    import_demo_posts(client, creator_id)
+    style = client.post(f"/api/profiles/{creator_id}/style/analyze")
+    assert style.status_code == 200
+    draft = client.post(
+        f"/api/profiles/{creator_id}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "Admin actions should keep the workspace manageable",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+        },
+    )
+    assert draft.status_code == 200
+
+    updated = client.patch(
+        f"/api/profiles/{creator_id}",
+        json={
+            "name": "Updated Creator",
+            "niche": "Creator operations",
+            "audience": "solo founders",
+            "goals": "Keep profile metadata editable.",
+            "platforms": ["x", "instagram"],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Updated Creator"
+
+    clear = client.delete(f"/api/profiles/{creator_id}/workspace")
+    assert clear.status_code == 204
+    assert client.get(f"/api/profiles/{creator_id}/imports").json() == []
+    assert client.get(f"/api/profiles/{creator_id}/drafts").json() == []
+    assert client.get(f"/api/profiles/{creator_id}/style").status_code == 404
+
+    deleted = client.delete(f"/api/profiles/{creator_id}")
+    assert deleted.status_code == 204
+    assert client.get(f"/api/profiles/{creator_id}").status_code == 404

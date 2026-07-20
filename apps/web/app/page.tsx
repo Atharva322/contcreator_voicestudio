@@ -1,16 +1,19 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
   analyzeStyle,
+  clearProfileWorkspace,
   createDraft,
   createProfile,
+  deleteProfile,
   getStyle,
   importPosts,
   listDrafts,
   listImportedPosts,
   listProfiles,
   updateDraftFeedback,
+  updateProfile,
 } from "@/lib/api";
 import type { CreatorProfile, Draft, DraftFormat, ImportedPost, Platform, StyleProfile } from "@/types/api";
 
@@ -71,6 +74,7 @@ export default function Home() {
   const canImportPosts = hasProfile && importForm.raw_posts.trim().length > 0;
   const canAnalyzeStyle = hasProfile && hasEnoughPosts;
   const canGenerateDraft = hasProfile && hasStyle && draftForm.topic.trim().length > 0;
+  const canSaveProfile = hasProfile && profileForm.name.trim().length > 0;
   const nextAction = getNextAction(hasProfile, hasEnoughPosts, hasStyle, hasDrafts);
 
   useEffect(() => {
@@ -136,6 +140,67 @@ export default function Home() {
       setDrafts([]);
       setImportedPosts([]);
       setStatus("Creator profile created. Add writing samples next.");
+    });
+  }
+
+  async function handleUpdateProfile() {
+    if (!activeId) return setError("Select a profile before saving changes.");
+    runAction(async () => {
+      const updated = await updateProfile(activeId, {
+        ...profileForm,
+        platforms: ["x", "instagram"],
+      });
+      setProfiles((current) => current.map((profile) => (profile.id === updated.id ? updated : profile)));
+      setStatus("Profile details saved.");
+    });
+  }
+
+  async function handleLoadProfileIntoForm() {
+    if (!activeProfile) return setError("Select a profile to load.");
+    setProfileForm({
+      name: activeProfile.name,
+      niche: activeProfile.niche,
+      audience: activeProfile.audience,
+      goals: activeProfile.goals,
+    });
+    setStatus("Loaded selected profile into the editor.");
+  }
+
+  async function handleClearWorkspace() {
+    if (!activeId) return setError("Select a profile before clearing workspace data.");
+    const confirmed = window.confirm("Clear imported samples, learned voice profile, drafts, and feedback for this profile?");
+    if (!confirmed) return;
+    runAction(async () => {
+      await clearProfileWorkspace(activeId);
+      setStyle(null);
+      setDraft(null);
+      setDrafts([]);
+      setImportedPosts([]);
+      setSelectedVariant({});
+      setFeedbackNotes({});
+      setStatus("Workspace data cleared for this profile.");
+    });
+  }
+
+  async function handleDeleteProfile() {
+    if (!activeId || !activeProfile) return setError("Select a profile before deleting.");
+    const confirmed = window.confirm(`Delete ${activeProfile.name} and all local workspace data?`);
+    if (!confirmed) return;
+    runAction(async () => {
+      await deleteProfile(activeId);
+      const remaining = profiles.filter((profile) => profile.id !== activeId);
+      setProfiles(remaining);
+      setActiveId(remaining[0]?.id ?? null);
+      setStyle(null);
+      setDraft(null);
+      setDrafts([]);
+      setImportedPosts([]);
+      setSelectedVariant({});
+      setFeedbackNotes({});
+      if (remaining[0]) {
+        refreshWorkspace(remaining[0].id);
+      }
+      setStatus("Profile deleted.");
     });
   }
 
@@ -209,8 +274,17 @@ export default function Home() {
   }
 
   function selectProfile(profileId: number) {
+    const profile = profiles.find((item) => item.id === profileId);
     setActiveId(profileId);
     setDraft(null);
+    if (profile) {
+      setProfileForm({
+        name: profile.name,
+        niche: profile.niche,
+        audience: profile.audience,
+        goals: profile.goals,
+      });
+    }
     refreshWorkspace(profileId);
   }
 
@@ -293,9 +367,31 @@ export default function Home() {
                 onChange={(event) => setProfileForm({ ...profileForm, goals: event.target.value })}
               />
             </div>
-            <button className="button" onClick={handleCreateProfile}>
-              Create profile
-            </button>
+            <div className="admin-actions">
+              <button className="button" onClick={handleCreateProfile}>
+                Create profile
+              </button>
+              <button className="button secondary" disabled={!canSaveProfile} onClick={handleUpdateProfile}>
+                Save selected
+              </button>
+              <button className="button ghost" disabled={!activeProfile} onClick={handleLoadProfileIntoForm}>
+                Load selected
+              </button>
+            </div>
+            <div className="admin-danger-zone">
+              <div>
+                <strong>Workspace admin</strong>
+                <p>Manage local demo data for the selected profile only.</p>
+              </div>
+              <div className="admin-actions">
+                <button className="button ghost" disabled={!activeProfile} onClick={handleClearWorkspace}>
+                  Clear workspace
+                </button>
+                <button className="button danger" disabled={!activeProfile} onClick={handleDeleteProfile}>
+                  Delete profile
+                </button>
+              </div>
+            </div>
           </section>
 
           <section className="studio-card stack">
@@ -323,7 +419,7 @@ export default function Home() {
           <section className="studio-card draft-lab stack" id="draft">
             <div className="section-heading">
               <div>
-                <span className="section-kicker">Step 04 · Priority workspace</span>
+                <span className="section-kicker">Step 04 - Priority workspace</span>
                 <h2>Draft generation lab</h2>
                 <p>
                   Once the profile and writing samples are ready, generate three draft directions and
@@ -509,7 +605,7 @@ export default function Home() {
                     <div>
                       <strong>{draftItem.topic}</strong>
                       <div className="muted">
-                        {draftItem.platform} · {draftItem.draft_format} ·{" "}
+                        {draftItem.platform} - {draftItem.draft_format} -{" "}
                         {new Date(draftItem.created_at).toLocaleString()}
                       </div>
                     </div>
