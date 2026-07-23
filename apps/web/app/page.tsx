@@ -61,6 +61,9 @@ export default function Home() {
     cta: "Save this for your next content planning session.",
     length: "medium",
     creativity: 0.55,
+    include_hashtags: false,
+    show_reuse_warnings: false,
+    show_evidence: false,
   });
 
   const activeProfile = useMemo(
@@ -491,6 +494,48 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="toggle-grid">
+              <label className="toggle-card">
+                <input
+                  checked={draftForm.include_hashtags}
+                  type="checkbox"
+                  onChange={(event) =>
+                    setDraftForm({ ...draftForm, include_hashtags: event.target.checked })
+                  }
+                />
+                <span>
+                  <strong>Include hashtags</strong>
+                  <small>User-controlled; off by default to avoid hashtag spam.</small>
+                </span>
+              </label>
+              <label className="toggle-card">
+                <input
+                  checked={draftForm.show_reuse_warnings}
+                  type="checkbox"
+                  onChange={(event) =>
+                    setDraftForm({ ...draftForm, show_reuse_warnings: event.target.checked })
+                  }
+                />
+                <span>
+                  <strong>Show reuse warnings</strong>
+                  <small>Detects captions that may be too close to imported samples.</small>
+                </span>
+              </label>
+              <label className="toggle-card">
+                <input
+                  checked={draftForm.show_evidence}
+                  type="checkbox"
+                  onChange={(event) =>
+                    setDraftForm({ ...draftForm, show_evidence: event.target.checked })
+                  }
+                />
+                <span>
+                  <strong>Show evidence</strong>
+                  <small>Optional notes about the voice traits and samples used.</small>
+                </span>
+              </label>
+            </div>
+
             <div className="row">
               <button className="button jumbo" disabled={!canGenerateDraft} onClick={handleCreateDraft}>
                 Generate draft variants
@@ -500,20 +545,23 @@ export default function Home() {
             </div>
 
             {draft && (
-              <div className="variant-grid">
-                {draft.variants.map((variant) => (
-                  <article className="draft-card featured" key={variant.label}>
-                    <div className="row between">
-                      <strong>{variant.label}</strong>
-                      <button className="button compact secondary" onClick={() => handleCopy(variant.text)}>
-                        Copy
-                      </button>
-                    </div>
-                    <pre>{variant.text}</pre>
-                    <p>{variant.rationale}</p>
-                  </article>
-                ))}
-              </div>
+              <>
+                <DraftSafetyPanel draft={draft} />
+                <div className="variant-grid">
+                  {draft.variants.map((variant) => (
+                    <article className="draft-card featured" key={variant.label}>
+                      <div className="row between">
+                        <strong>{variant.label}</strong>
+                        <button className="button compact secondary" onClick={() => handleCopy(variant.text)}>
+                          Copy
+                        </button>
+                      </div>
+                      <pre>{variant.text}</pre>
+                      <p>{variant.rationale}</p>
+                    </article>
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
@@ -630,6 +678,7 @@ export default function Home() {
                     </select>
                   </div>
                   <pre>{selectedVariant[draftItem.id] || draftItem.variants[0]?.text || ""}</pre>
+                  <DraftSafetyPanel draft={draftItem} compact />
                   <div className="row">
                     <button
                       className="button compact secondary"
@@ -720,6 +769,39 @@ function VoiceTile({ title, value }: { title: string; value: string }) {
     <div className="voice-tile">
       <strong>{title}</strong>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function DraftSafetyPanel({ draft, compact = false }: { draft: Draft; compact?: boolean }) {
+  const hasWarnings = draft.warnings.length > 0;
+  const hasEvidence = draft.evidence.length > 0;
+  if (!hasWarnings && !hasEvidence) {
+    return null;
+  }
+
+  return (
+    <div className={`safety-panel ${compact ? "compact" : ""}`}>
+      {hasWarnings && (
+        <div className="safety-block warning">
+          <strong>Reuse warnings</strong>
+          {draft.warnings.map((warning, index) => (
+            <p key={`${warning.variant_label}-${index}`}>
+              {warning.variant_label}: {warning.message}
+            </p>
+          ))}
+        </div>
+      )}
+      {hasEvidence && (
+        <div className="safety-block evidence">
+          <strong>Voice evidence</strong>
+          {draft.evidence.map((item, index) => (
+            <p key={`${item.title}-${index}`}>
+              <b>{item.title}:</b> {item.text}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -42,6 +42,18 @@ export type DraftVariant = {
   rationale: string;
 };
 
+export type DraftWarning = {
+  variant_label: string;
+  type: string;
+  score?: number;
+  message: string;
+};
+
+export type DraftEvidence = {
+  title: string;
+  text: string;
+};
+
 export type Draft = {
   id: number;
   creator_id: number;
@@ -49,6 +61,8 @@ export type Draft = {
   draft_format: DraftFormat;
   topic: string;
   variants: DraftVariant[];
+  warnings: DraftWarning[];
+  evidence: DraftEvidence[];
   rating?: number | null;
   feedback?: string | null;
   created_at: string;

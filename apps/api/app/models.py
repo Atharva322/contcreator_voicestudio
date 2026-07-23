@@ -132,6 +132,9 @@ class DraftCreate(BaseModel):
     cta: str = ""
     length: str = "medium"
     creativity: float = Field(default=0.5, ge=0, le=1)
+    include_hashtags: bool = False
+    show_reuse_warnings: bool = False
+    show_evidence: bool = False
 
 
 class DraftRead(BaseModel):
@@ -141,6 +144,8 @@ class DraftRead(BaseModel):
     draft_format: str
     topic: str
     variants: list[dict[str, str]]
+    warnings: list[dict[str, str | float]] = Field(default_factory=list)
+    evidence: list[dict[str, str]] = Field(default_factory=list)
     rating: int | None = None
     feedback: str | None = None
     created_at: datetime

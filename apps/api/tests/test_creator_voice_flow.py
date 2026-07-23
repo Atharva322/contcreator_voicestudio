@@ -153,6 +153,36 @@ def test_draft_generation_requires_style_profile(client: TestClient) -> None:
     assert "Analyze creator style" in draft.json()["detail"]
 
 
+def test_draft_options_can_include_hashtags_evidence_and_reuse_warnings(client: TestClient) -> None:
+    creator = create_creator(client)
+    import_demo_posts(client, creator["id"])
+    style = client.post(f"/api/profiles/{creator['id']}/style/analyze")
+    assert style.status_code == 200
+
+    draft = client.post(
+        f"/api/profiles/{creator['id']}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "Build a voice system before you build a content calendar",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+            "include_hashtags": True,
+            "show_reuse_warnings": True,
+            "show_evidence": True,
+        },
+    )
+
+    assert draft.status_code == 200
+    body = draft.json()
+    assert len(body["variants"]) == 3
+    assert all("#CreatorTools" in variant["text"] for variant in body["variants"])
+    assert len(body["evidence"]) >= 3
+    assert body["warnings"]
+
+
 def test_profile_admin_edit_clear_and_delete(client: TestClient) -> None:
     creator = create_creator(client)
     creator_id = creator["id"]

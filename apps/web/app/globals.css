@@ -393,6 +393,40 @@ textarea {
   gap: 12px;
 }
 
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toggle-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+}
+
+.toggle-card input {
+  width: auto;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.toggle-card strong,
+.toggle-card small {
+  display: block;
+}
+
+.toggle-card small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .profile-list,
 .drafts,
 .mini-list {
@@ -465,6 +499,38 @@ textarea {
 
 .draft-card p {
   font-size: 0.9rem;
+}
+
+.safety-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.safety-panel.compact {
+  grid-template-columns: 1fr;
+}
+
+.safety-block {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 14px;
+}
+
+.safety-block strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.safety-block.warning {
+  border-color: rgba(249, 115, 22, 0.28);
+  background: #fff7ed;
+}
+
+.safety-block.evidence {
+  border-color: rgba(99, 91, 255, 0.22);
+  background: var(--accent-soft);
 }
 
 .mini-card p {
@@ -578,6 +644,7 @@ textarea {
 
   .wizard-rail,
   .two-col,
+  .toggle-grid,
   .metric-grid {
     grid-template-columns: 1fr;
   }

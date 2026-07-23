@@ -117,6 +117,9 @@ export function createDraft(
     cta: string;
     length: string;
     creativity: number;
+    include_hashtags: boolean;
+    show_reuse_warnings: boolean;
+    show_evidence: boolean;
   },
 ) {
   return request<Draft>(`/api/profiles/${creatorId}/drafts`, {

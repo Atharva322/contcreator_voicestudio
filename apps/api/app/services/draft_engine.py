@@ -1,8 +1,11 @@
 import json
 import random
+import re
 
 from app.models import CreatorProfile, DraftCreate, ImportedPost, StyleProfile
 from app.services.openai_client import AIClient
+
+WORD_PATTERN = re.compile(r"[a-zA-Z0-9']+")
 
 
 def build_draft_prompt(
@@ -39,9 +42,13 @@ Draft request:
 - CTA: {request.cta}
 - Length: {request.length}
 - Creativity: {request.creativity}
+- Hashtags: {"include only if useful and natural" if request.include_hashtags else "do not include hashtags"}
+- Optimization: balance creator voice match with caption quality and clarity.
+- Reuse safety: do not copy old captions verbatim; preserve style, not exact wording.
 
 Return JSON with a "variants" array of exactly 3 objects. Each object must have:
 label, text, rationale. Labels must be "On-brand", "Punchier", and "Experimental".
+If hashtags are disabled, captions must not include hashtags.
 """.strip()
 
 
@@ -60,15 +67,16 @@ def generate_drafts(
     variants = result.get("variants", fallback["variants"])
     if not isinstance(variants, list):
         return fallback["variants"]
-    return [
+    normalized = [
         {
             "label": str(item.get("label", "Variant")),
-            "text": str(item.get("text", "")),
+            "text": enforce_hashtag_policy(str(item.get("text", "")), request.include_hashtags),
             "rationale": str(item.get("rationale", "")),
         }
         for item in variants[:3]
         if isinstance(item, dict)
-    ] or fallback["variants"]
+    ]
+    return normalized or fallback["variants"]
 
 
 def heuristic_drafts(creator: CreatorProfile, request: DraftCreate) -> list[dict[str, str]]:
@@ -77,7 +85,7 @@ def heuristic_drafts(creator: CreatorProfile, request: DraftCreate) -> list[dict
     random.shuffle(endings)
     base = request.topic.strip()
 
-    return [
+    variants = [
         {
             "label": "On-brand",
             "text": f"{base}\n\nHere is the practical version: keep the idea clear, make the next step obvious, and speak like a human.\n\n{endings[0]}",
@@ -94,7 +102,122 @@ def heuristic_drafts(creator: CreatorProfile, request: DraftCreate) -> list[dict
             "rationale": "More conceptual angle while staying creator-led.",
         },
     ]
+    if request.include_hashtags:
+        return [
+            {
+                **variant,
+                "text": f"{variant['text']}\n\n#CreatorTools #ContentStrategy",
+            }
+            for variant in variants
+        ]
+    return variants
 
 
-def variants_to_json(variants: list[dict[str, str]]) -> str:
-    return json.dumps(variants, ensure_ascii=False)
+def build_reuse_warnings(
+    variants: list[dict[str, str]],
+    source_posts: list[ImportedPost],
+    enabled: bool,
+) -> list[dict[str, str | float]]:
+    if not enabled:
+        return []
+
+    warnings: list[dict[str, str | float]] = []
+    for variant in variants:
+        variant_text = variant.get("text", "")
+        variant_words = word_set(variant_text)
+        if not variant_words:
+            continue
+        for post in source_posts:
+            score = jaccard_similarity(variant_words, word_set(post.text))
+            repeated_phrase = longest_shared_phrase(variant_text, post.text)
+            if score >= 0.62 or repeated_phrase:
+                warnings.append(
+                    {
+                        "variant_label": variant.get("label", "Variant"),
+                        "type": "reuse_similarity",
+                        "score": round(score, 3),
+                        "message": build_warning_message(score, repeated_phrase),
+                    }
+                )
+                break
+    return warnings
+
+
+def build_evidence(
+    style: StyleProfile,
+    examples: list[ImportedPost],
+    enabled: bool,
+) -> list[dict[str, str]]:
+    if not enabled:
+        return []
+
+    evidence = [
+        {"title": "Tone signal", "text": style.tone},
+        {"title": "Hook pattern", "text": style.hooks},
+        {"title": "Formatting habit", "text": style.formatting},
+    ]
+    for post in examples[:3]:
+        evidence.append({"title": f"Example from {post.platform}", "text": post.text})
+    return evidence
+
+
+def variants_to_json(
+    variants: list[dict[str, str]],
+    warnings: list[dict[str, str | float]] | None = None,
+    evidence: list[dict[str, str]] | None = None,
+) -> str:
+    return json.dumps(
+        {
+            "variants": variants,
+            "warnings": warnings or [],
+            "evidence": evidence or [],
+        },
+        ensure_ascii=False,
+    )
+
+
+def parse_draft_payload(payload: str) -> tuple[list[dict[str, str]], list[dict[str, str | float]], list[dict[str, str]]]:
+    parsed = json.loads(payload)
+    if isinstance(parsed, list):
+        return parsed, [], []
+    return parsed.get("variants", []), parsed.get("warnings", []), parsed.get("evidence", [])
+
+
+def word_set(text: str) -> set[str]:
+    return {word.lower() for word in WORD_PATTERN.findall(text) if len(word) > 2}
+
+
+def jaccard_similarity(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    return len(left & right) / len(left | right)
+
+
+def longest_shared_phrase(left: str, right: str, min_words: int = 6) -> str:
+    left_words = [word.lower() for word in WORD_PATTERN.findall(left)]
+    right_text = " ".join(word.lower() for word in WORD_PATTERN.findall(right))
+    for size in range(min(12, len(left_words)), min_words - 1, -1):
+        for index in range(0, len(left_words) - size + 1):
+            phrase = " ".join(left_words[index : index + size])
+            if phrase and phrase in right_text:
+                return phrase
+    return ""
+
+
+def build_warning_message(score: float, repeated_phrase: str) -> str:
+    if repeated_phrase:
+        return f"Draft repeats a distinctive phrase from an imported caption: '{repeated_phrase}'."
+    return f"Draft has high lexical overlap with an imported caption ({score:.0%})."
+
+
+def enforce_hashtag_policy(text: str, include_hashtags: bool) -> str:
+    if include_hashtags:
+        return text
+    lines = []
+    for line in text.splitlines():
+        cleaned_line = " ".join(token for token in line.split() if not token.startswith("#"))
+        if cleaned_line.strip():
+            lines.append(cleaned_line.rstrip())
+        elif line.strip() == "":
+            lines.append("")
+    return "\n".join(lines).strip()

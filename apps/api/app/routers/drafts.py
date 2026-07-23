@@ -1,11 +1,9 @@
-import json
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import CreatorProfile, Draft, DraftCreate, DraftFeedback, DraftRead, ImportedPost, StyleProfile, utc_now
-from app.services.draft_engine import generate_drafts, variants_to_json
+from app.services.draft_engine import build_evidence, build_reuse_warnings, generate_drafts, parse_draft_payload, variants_to_json
 
 router = APIRouter(prefix="/api/profiles/{creator_id}/drafts", tags=["drafts"])
 
@@ -40,6 +38,8 @@ def create_draft(creator_id: int, payload: DraftCreate, session: Session = Depen
         )
 
     variants = generate_drafts(creator, style, examples, payload)
+    warnings = build_reuse_warnings(variants, examples, payload.show_reuse_warnings)
+    evidence = build_evidence(style, examples, payload.show_evidence)
     draft = Draft(
         creator_id=creator_id,
         platform=payload.platform.value,
@@ -49,7 +49,7 @@ def create_draft(creator_id: int, payload: DraftCreate, session: Session = Depen
         cta=payload.cta,
         length=payload.length,
         creativity=payload.creativity,
-        variants_json=variants_to_json(variants),
+        variants_json=variants_to_json(variants, warnings, evidence),
     )
     session.add(draft)
     session.commit()
@@ -90,13 +90,16 @@ def update_draft_feedback(
 
 
 def draft_to_read(draft: Draft) -> DraftRead:
+    variants, warnings, evidence = parse_draft_payload(draft.variants_json)
     return DraftRead(
         id=draft.id or 0,
         creator_id=draft.creator_id,
         platform=draft.platform,
         draft_format=draft.draft_format,
         topic=draft.topic,
-        variants=json.loads(draft.variants_json),
+        variants=variants,
+        warnings=warnings,
+        evidence=evidence,
         rating=draft.rating,
         feedback=draft.feedback,
         created_at=draft.created_at,
