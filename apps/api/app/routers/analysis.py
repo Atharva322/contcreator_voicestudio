@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import CreatorProfile, ImportedPost, StyleProfile, StyleProfileRead, utc_now
+from app.models import CreatorProfile, ImportedPost, StyleProfile, StyleProfileRead, StyleProfileUpdate, utc_now
 from app.services.style_engine import analyze_style, style_to_json
 
 router = APIRouter(prefix="/api/profiles/{creator_id}/style", tags=["style"])
@@ -37,4 +37,29 @@ def get_style_profile(creator_id: int, session: Session = Depends(get_session)) 
     style = session.exec(select(StyleProfile).where(StyleProfile.creator_id == creator_id)).first()
     if not style:
         raise HTTPException(status_code=404, detail="Style profile not found")
+    return style
+
+
+@router.patch("", response_model=StyleProfileRead)
+def update_style_profile(
+    creator_id: int,
+    payload: StyleProfileUpdate,
+    session: Session = Depends(get_session),
+) -> StyleProfile:
+    creator = session.get(CreatorProfile, creator_id)
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator profile not found")
+
+    style = session.exec(select(StyleProfile).where(StyleProfile.creator_id == creator_id)).first()
+    if not style:
+        raise HTTPException(status_code=404, detail="Style profile not found")
+
+    result = payload.model_dump()
+    for key, value in result.items():
+        setattr(style, key, value)
+    style.raw_json = style_to_json(result)
+    style.updated_at = utc_now()
+    session.add(style)
+    session.commit()
+    session.refresh(style)
     return style

@@ -467,7 +467,6 @@ textarea {
 }
 
 .draft-card,
-.voice-tile,
 .mini-card,
 .empty-state {
   border: 1px solid var(--line);
@@ -482,7 +481,6 @@ textarea {
 }
 
 .draft-card strong,
-.voice-tile strong,
 .empty-state strong {
   display: block;
   color: #172554;
@@ -541,15 +539,15 @@ textarea {
   -webkit-line-clamp: 3;
 }
 
-.voice-grid {
+.voice-editor-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.voice-tile span {
-  color: var(--muted);
-  line-height: 1.55;
+.voice-field textarea {
+  min-height: 112px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .compact-section {
@@ -621,7 +619,7 @@ textarea {
   .hero,
   .workspace,
   .variant-grid,
-  .voice-grid {
+  .voice-editor-grid {
     grid-template-columns: 1fr;
   }
 
@@ -645,6 +643,7 @@ textarea {
   .wizard-rail,
   .two-col,
   .toggle-grid,
+  .voice-editor-grid,
   .metric-grid {
     grid-template-columns: 1fr;
   }

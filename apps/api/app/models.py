@@ -124,6 +124,18 @@ class StyleProfileRead(BaseModel):
     updated_at: datetime
 
 
+class StyleProfileUpdate(BaseModel):
+    summary: str = Field(min_length=1)
+    tone: str = Field(min_length=1)
+    hooks: str = Field(min_length=1)
+    rhythm: str = Field(min_length=1)
+    vocabulary: str = Field(min_length=1)
+    emoji_hashtag_habits: str = Field(min_length=1)
+    cta_habits: str = Field(min_length=1)
+    formatting: str = Field(min_length=1)
+    avoid_rules: str = Field(min_length=1)
+
+
 class DraftCreate(BaseModel):
     platform: Platform
     draft_format: DraftFormat

@@ -183,6 +183,49 @@ def test_draft_options_can_include_hashtags_evidence_and_reuse_warnings(client: 
     assert body["warnings"]
 
 
+def test_style_profile_can_be_edited_manually(client: TestClient) -> None:
+    creator = create_creator(client)
+    import_demo_posts(client, creator["id"])
+
+    analyzed = client.post(f"/api/profiles/{creator['id']}/style/analyze")
+    assert analyzed.status_code == 200
+
+    editable_fields = [
+        "summary",
+        "tone",
+        "hooks",
+        "rhythm",
+        "vocabulary",
+        "emoji_hashtag_habits",
+        "cta_habits",
+        "formatting",
+        "avoid_rules",
+    ]
+    style_payload = {field: analyzed.json()[field] for field in editable_fields}
+    style_payload["tone"] = "Direct, warm, and slightly contrarian."
+    style_payload["avoid_rules"] = "Avoid corporate jargon, inflated claims, and recycled sample lines."
+
+    updated = client.patch(f"/api/profiles/{creator['id']}/style", json=style_payload)
+    assert updated.status_code == 200
+    assert updated.json()["tone"] == "Direct, warm, and slightly contrarian."
+    assert updated.json()["avoid_rules"] == "Avoid corporate jargon, inflated claims, and recycled sample lines."
+
+    draft = client.post(
+        f"/api/profiles/{creator['id']}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "Why editable voice rules protect creator style",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+        },
+    )
+    assert draft.status_code == 200
+    assert len(draft.json()["variants"]) == 3
+
+
 def test_profile_admin_edit_clear_and_delete(client: TestClient) -> None:
     creator = create_creator(client)
     creator_id = creator["id"]

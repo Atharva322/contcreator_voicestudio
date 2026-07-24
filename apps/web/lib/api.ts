@@ -107,6 +107,15 @@ export function getStyle(creatorId: number) {
   return request<StyleProfile>(`/api/profiles/${creatorId}/style`);
 }
 
+export type StylePayload = Omit<StyleProfile, "creator_id" | "updated_at">;
+
+export function updateStyle(creatorId: number, payload: StylePayload) {
+  return request<StyleProfile>(`/api/profiles/${creatorId}/style`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function createDraft(
   creatorId: number,
   payload: {

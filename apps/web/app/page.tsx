@@ -14,6 +14,7 @@ import {
   listProfiles,
   updateDraftFeedback,
   updateProfile,
+  updateStyle,
 } from "@/lib/api";
 import type { CreatorProfile, Draft, DraftFormat, ImportedPost, Platform, StyleProfile } from "@/types/api";
 
@@ -28,11 +29,25 @@ Your caption should do three jobs:
 3. Give the reader a next step`;
 
 type StepStatus = "done" | "active" | "locked";
+type EditableStyleProfile = Omit<StyleProfile, "creator_id" | "updated_at">;
+
+const emptyStyleForm: EditableStyleProfile = {
+  summary: "",
+  tone: "",
+  hooks: "",
+  rhythm: "",
+  vocabulary: "",
+  emoji_hashtag_habits: "",
+  cta_habits: "",
+  formatting: "",
+  avoid_rules: "",
+};
 
 export default function Home() {
   const [profiles, setProfiles] = useState<CreatorProfile[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [style, setStyle] = useState<StyleProfile | null>(null);
+  const [styleForm, setStyleForm] = useState<EditableStyleProfile>(emptyStyleForm);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [importedPosts, setImportedPosts] = useState<ImportedPost[]>([]);
@@ -101,8 +116,10 @@ export default function Home() {
     try {
       const data = await getStyle(creatorId);
       setStyle(data);
+      setStyleForm(styleToForm(data));
     } catch {
       setStyle(null);
+      setStyleForm(emptyStyleForm);
     }
   }
 
@@ -139,6 +156,7 @@ export default function Home() {
       setProfiles((current) => [profile, ...current]);
       setActiveId(profile.id);
       setStyle(null);
+      setStyleForm(emptyStyleForm);
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
@@ -176,6 +194,7 @@ export default function Home() {
     runAction(async () => {
       await clearProfileWorkspace(activeId);
       setStyle(null);
+      setStyleForm(emptyStyleForm);
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
@@ -195,6 +214,7 @@ export default function Home() {
       setProfiles(remaining);
       setActiveId(remaining[0]?.id ?? null);
       setStyle(null);
+      setStyleForm(emptyStyleForm);
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
@@ -225,8 +245,26 @@ export default function Home() {
     runAction(async () => {
       const data = await analyzeStyle(activeId);
       setStyle(data);
+      setStyleForm(styleToForm(data));
       setStatus("Voice profile learned. Draft generation is ready.");
     });
+  }
+
+  async function handleSaveStyleGuide() {
+    if (!activeId) return setError("Select a profile before saving voice edits.");
+    if (!style) return setError("Analyze the voice before editing the guide.");
+    runAction(async () => {
+      const updated = await updateStyle(activeId, styleForm);
+      setStyle(updated);
+      setStyleForm(styleToForm(updated));
+      setStatus("Voice guide saved. Future drafts will use these edited instructions.");
+    });
+  }
+
+  function handleResetStyleForm() {
+    if (!style) return;
+    setStyleForm(styleToForm(style));
+    setStatus("Voice guide edits reset to the saved profile.");
   }
 
   async function handleCreateDraft() {
@@ -718,18 +756,68 @@ export default function Home() {
           <section className="studio-card compact-section" id="voice">
             <div>
               <span className="section-kicker">Voice profile</span>
-              <h2>Learned voice signals</h2>
-              {!style && <p>Voice insights appear after analysis. This stays secondary to drafting for now.</p>}
+              <h2>Editable voice guide</h2>
+              {!style && <p>Analyze writing samples first, then tune the guide that future drafts use.</p>}
             </div>
             {style && (
-              <div className="voice-grid">
-                <VoiceTile title="Tone" value={style.tone} />
-                <VoiceTile title="Hooks" value={style.hooks} />
-                <VoiceTile title="Rhythm" value={style.rhythm} />
-                <VoiceTile title="Vocabulary" value={style.vocabulary} />
-                <VoiceTile title="Emoji / Hashtags" value={style.emoji_hashtag_habits} />
-                <VoiceTile title="Avoid" value={style.avoid_rules} />
-              </div>
+              <>
+                <div className="voice-editor-grid">
+                  <VoiceField
+                    label="Summary"
+                    value={styleForm.summary}
+                    onChange={(value) => setStyleForm({ ...styleForm, summary: value })}
+                  />
+                  <VoiceField
+                    label="Tone"
+                    value={styleForm.tone}
+                    onChange={(value) => setStyleForm({ ...styleForm, tone: value })}
+                  />
+                  <VoiceField
+                    label="Hooks"
+                    value={styleForm.hooks}
+                    onChange={(value) => setStyleForm({ ...styleForm, hooks: value })}
+                  />
+                  <VoiceField
+                    label="Rhythm"
+                    value={styleForm.rhythm}
+                    onChange={(value) => setStyleForm({ ...styleForm, rhythm: value })}
+                  />
+                  <VoiceField
+                    label="Vocabulary"
+                    value={styleForm.vocabulary}
+                    onChange={(value) => setStyleForm({ ...styleForm, vocabulary: value })}
+                  />
+                  <VoiceField
+                    label="Emoji / Hashtags"
+                    value={styleForm.emoji_hashtag_habits}
+                    onChange={(value) => setStyleForm({ ...styleForm, emoji_hashtag_habits: value })}
+                  />
+                  <VoiceField
+                    label="CTA habits"
+                    value={styleForm.cta_habits}
+                    onChange={(value) => setStyleForm({ ...styleForm, cta_habits: value })}
+                  />
+                  <VoiceField
+                    label="Formatting"
+                    value={styleForm.formatting}
+                    onChange={(value) => setStyleForm({ ...styleForm, formatting: value })}
+                  />
+                  <VoiceField
+                    label="Avoid rules"
+                    value={styleForm.avoid_rules}
+                    onChange={(value) => setStyleForm({ ...styleForm, avoid_rules: value })}
+                  />
+                </div>
+                <div className="row">
+                  <button className="button secondary" onClick={handleSaveStyleGuide}>
+                    Save voice guide
+                  </button>
+                  <button className="button ghost" onClick={handleResetStyleForm}>
+                    Reset edits
+                  </button>
+                  <span className="hint">Manual guardrails override the analyzed profile.</span>
+                </div>
+              </>
             )}
           </section>
         </section>
@@ -764,11 +852,33 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function VoiceTile({ title, value }: { title: string; value: string }) {
+function styleToForm(style: StyleProfile): EditableStyleProfile {
+  return {
+    summary: style.summary,
+    tone: style.tone,
+    hooks: style.hooks,
+    rhythm: style.rhythm,
+    vocabulary: style.vocabulary,
+    emoji_hashtag_habits: style.emoji_hashtag_habits,
+    cta_habits: style.cta_habits,
+    formatting: style.formatting,
+    avoid_rules: style.avoid_rules,
+  };
+}
+
+function VoiceField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <div className="voice-tile">
-      <strong>{title}</strong>
-      <span>{value}</span>
+    <div className="field voice-field">
+      <label>{label}</label>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
 }
