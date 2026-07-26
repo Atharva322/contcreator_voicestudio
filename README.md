@@ -207,14 +207,30 @@ Current backend tests cover:
 - Copy/export drafts only; no direct publishing.
 - OpenAI generation when configured, heuristic fallback otherwise.
 
-## Future Expansion
+## Future Changes
+
+Near-term improvements that can be added without changing the core V1 algorithm:
+
+- Improve the editable voice guide with saved presets, reset-to-analysis, and change history.
+- Add better draft history filters by creator, platform, rating, and draft format.
+- Expand feedback capture so accepted edits can influence future prompts.
+- Add import quality checks for duplicate, too-short, or off-topic writing samples.
+- Add export options for drafts, voice guides, and imported sample sets.
+
+Algorithm and system-design decisions to review before implementation:
+
+- Style analysis scoring, evidence weighting, and representative-sample selection.
+- Retrieval strategy for choosing which past posts guide each new draft.
+- Reuse protection thresholds for warning when drafts are too close to old captions.
+- Optional brand safety / approval workflow for teams or SaaS users.
+- Fine-tuning, embeddings, or evaluator models if simple prompting is not enough.
+
+Larger expansion paths:
 
 - Real OAuth import for X and Instagram.
-- Audio narration / text-to-speech.
-- Scheduling and publishing.
-- Brand guardrails and content approval workflows.
-- Stronger style-analysis architecture with evidence, scoring, and retrieval decisions.
-- Multi-profile campaign workspace.
+- Scheduling and publishing after social account connections are real.
+- Multi-profile campaign workspace for agencies or creator teams.
+- Audio narration / text-to-speech as a separate voice module later.
 
 ## Status
 
