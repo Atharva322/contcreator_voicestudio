@@ -226,6 +226,62 @@ def test_style_profile_can_be_edited_manually(client: TestClient) -> None:
     assert len(draft.json()["variants"]) == 3
 
 
+def test_feedback_suggestions_are_user_approved_before_updating_voice(client: TestClient) -> None:
+    creator = create_creator(client)
+    creator_id = creator["id"]
+    import_demo_posts(client, creator_id)
+    analyzed = client.post(f"/api/profiles/{creator_id}/style/analyze")
+    assert analyzed.status_code == 200
+
+    draft = client.post(
+        f"/api/profiles/{creator_id}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "How to make AI captions feel less generic",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+        },
+    )
+    assert draft.status_code == 200
+    draft_body = draft.json()
+
+    feedback = client.patch(
+        f"/api/profiles/{creator_id}/drafts/{draft_body['id']}/feedback",
+        json={
+            "selected_text": draft_body["variants"][0]["text"],
+            "rating": 2,
+            "feedback": "The hook felt weak and the wording sounded generic.",
+        },
+    )
+    assert feedback.status_code == 200
+
+    reviewed = client.post(f"/api/profiles/{creator_id}/style/suggestions/review")
+    assert reviewed.status_code == 200
+    suggestions = reviewed.json()
+    assert suggestions
+    assert all(suggestion["status"] == "pending" for suggestion in suggestions)
+
+    hook_suggestion = next(suggestion for suggestion in suggestions if suggestion["target_field"] == "hooks")
+    accepted = client.patch(
+        f"/api/profiles/{creator_id}/style/suggestions/{hook_suggestion['id']}",
+        json={"decision": "accepted"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "accepted"
+
+    style = client.get(f"/api/profiles/{creator_id}/style")
+    assert style.status_code == 200
+    assert "Feedback rule:" in style.json()["hooks"]
+
+    revisions = client.get(f"/api/profiles/{creator_id}/style/revisions")
+    assert revisions.status_code == 200
+    assert revisions.json()
+    assert revisions.json()[0]["reason"].startswith("accepted_suggestion:")
+
+
 def test_profile_admin_edit_clear_and_delete(client: TestClient) -> None:
     creator = create_creator(client)
     creator_id = creator["id"]

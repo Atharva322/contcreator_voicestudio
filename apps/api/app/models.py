@@ -61,6 +61,34 @@ class StyleProfile(SQLModel, table=True):
     updated_at: datetime = SQLField(default_factory=utc_now)
 
 
+class StyleGuideRevision(SQLModel, table=True):
+    id: int | None = SQLField(default=None, primary_key=True)
+    creator_id: int = SQLField(index=True)
+    summary: str
+    tone: str
+    hooks: str
+    rhythm: str
+    vocabulary: str
+    emoji_hashtag_habits: str
+    cta_habits: str
+    formatting: str
+    avoid_rules: str
+    reason: str = "manual_edit"
+    created_at: datetime = SQLField(default_factory=utc_now)
+
+
+class VoiceSuggestion(SQLModel, table=True):
+    id: int | None = SQLField(default=None, primary_key=True)
+    creator_id: int = SQLField(index=True)
+    source_draft_id: int | None = SQLField(default=None, index=True)
+    target_field: str
+    suggestion: str
+    rationale: str
+    status: str = SQLField(default="pending", index=True)
+    created_at: datetime = SQLField(default_factory=utc_now)
+    updated_at: datetime = SQLField(default_factory=utc_now)
+
+
 class Draft(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
     creator_id: int = SQLField(index=True)
@@ -124,6 +152,22 @@ class StyleProfileRead(BaseModel):
     updated_at: datetime
 
 
+class StyleGuideRevisionRead(BaseModel):
+    id: int
+    creator_id: int
+    summary: str
+    tone: str
+    hooks: str
+    rhythm: str
+    vocabulary: str
+    emoji_hashtag_habits: str
+    cta_habits: str
+    formatting: str
+    avoid_rules: str
+    reason: str
+    created_at: datetime
+
+
 class StyleProfileUpdate(BaseModel):
     summary: str = Field(min_length=1)
     tone: str = Field(min_length=1)
@@ -134,6 +178,22 @@ class StyleProfileUpdate(BaseModel):
     cta_habits: str = Field(min_length=1)
     formatting: str = Field(min_length=1)
     avoid_rules: str = Field(min_length=1)
+
+
+class VoiceSuggestionRead(BaseModel):
+    id: int
+    creator_id: int
+    source_draft_id: int | None = None
+    target_field: str
+    suggestion: str
+    rationale: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class VoiceSuggestionDecision(BaseModel):
+    decision: str = Field(pattern="^(accepted|dismissed)$")
 
 
 class DraftCreate(BaseModel):

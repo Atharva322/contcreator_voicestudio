@@ -10,8 +10,10 @@ The app is designed as a polished SaaS-style demo, but runs locally for now. It 
 - Import writing samples manually from X or Instagram.
 - Normalize and deduplicate imported samples.
 - Analyze samples into a visible creator voice profile.
+- Edit the learned voice guide with user-approved guardrails.
 - Generate three draft variants for a new topic.
 - Copy drafts, rate outputs, and save feedback notes.
+- Review feedback-derived voice suggestions before applying them.
 - Clear workspace data or delete a profile from the UI.
 
 The goal is not to replace the creator. The goal is to reduce blank-page friction while keeping the user in control of voice, edits, and publishing.
@@ -24,6 +26,8 @@ Create Profile
   -> Analyze Voice
   -> Generate Draft Variants
   -> Copy / Rate / Add Feedback
+  -> Review Feedback Suggestions
+  -> Accept / Dismiss Voice Guide Updates
   -> Reuse Draft History
 ```
 
@@ -41,6 +45,7 @@ OpenAI     Optional style extraction and draft generation
 - `FastAPI` API with profile, import, style, draft, feedback, and admin routes.
 - `SQLModel` + SQLite for local storage.
 - Manual import connector for pasted text, CSV, or JSON.
+- Editable style profiles, voice suggestions, and style-guide revision history.
 - Placeholder X and Instagram connector classes for future OAuth work.
 - OpenAI wrapper with heuristic fallbacks when no API key is configured.
 
@@ -51,6 +56,8 @@ OpenAI     Optional style extraction and draft generation
 - Draft generation prioritized as the main workspace.
 - Manual import only; no fake social connection cards yet.
 - Draft history, copy buttons, feedback notes, and 1-5 ratings.
+- Feedback suggestion inbox with accept/dismiss controls.
+- Editable voice guide with manual guardrails.
 - Workspace admin controls for saving profiles, clearing workspace data, and deleting profiles.
 
 ## Current Backend Flow
@@ -83,6 +90,10 @@ flowchart TD
 
     S --> T[User Reviews / Copies / Rates]
     T --> U[(SQLite: Feedback)]
+    U --> V[Review Feedback Suggestions]
+    V --> W{User Approves?}
+    W -->|Accept| X[(SQLite: Updated Style Profile + Revision)]
+    W -->|Dismiss| Y[(SQLite: Dismissed Suggestion)]
 ```
 
 ## API Capabilities
@@ -97,6 +108,11 @@ flowchart TD
 - `GET /api/profiles/{creator_id}/imports` - list imported samples.
 - `POST /api/profiles/{creator_id}/style/analyze` - analyze imported samples into a style profile.
 - `GET /api/profiles/{creator_id}/style` - fetch the current style profile.
+- `PATCH /api/profiles/{creator_id}/style` - save editable voice guide changes.
+- `GET /api/profiles/{creator_id}/style/revisions` - list recent voice guide revisions.
+- `GET /api/profiles/{creator_id}/style/suggestions` - list feedback-derived voice suggestions.
+- `POST /api/profiles/{creator_id}/style/suggestions/review` - review ratings and notes for suggested guide edits.
+- `PATCH /api/profiles/{creator_id}/style/suggestions/{suggestion_id}` - accept or dismiss a suggestion.
 - `POST /api/profiles/{creator_id}/drafts` - generate draft variants.
 - `GET /api/profiles/{creator_id}/drafts` - list draft history.
 - `PATCH /api/profiles/{creator_id}/drafts/{draft_id}/feedback` - save selected text, rating, and notes.
@@ -197,6 +213,7 @@ Current backend tests cover:
 - Full profile -> import -> analyze -> draft -> feedback flow.
 - Style analysis requiring at least 3 samples.
 - Draft generation requiring an analyzed voice profile.
+- Editable voice guide updates and feedback-suggestion approval flow.
 - Profile edit, workspace clear, and profile delete admin actions.
 
 ## V1 Scope
@@ -234,4 +251,4 @@ Larger expansion paths:
 
 ## Status
 
-Current state: runnable local demo shell with a polished guided frontend, FastAPI backend, SQLite persistence, admin controls, draft history, feedback loop, and regression tests.
+Current state: runnable local demo shell with a polished guided frontend, FastAPI backend, SQLite persistence, admin controls, editable voice guide, draft history, feedback-to-voice learning loop, and regression tests.

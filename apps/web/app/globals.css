@@ -429,7 +429,9 @@ textarea {
 
 .profile-list,
 .drafts,
-.mini-list {
+.mini-list,
+.suggestion-grid,
+.revision-strip {
   display: grid;
   gap: 12px;
 }
@@ -467,6 +469,7 @@ textarea {
 }
 
 .draft-card,
+.suggestion-card,
 .mini-card,
 .empty-state {
   border: 1px solid var(--line);
@@ -481,6 +484,7 @@ textarea {
 }
 
 .draft-card strong,
+.suggestion-card strong,
 .empty-state strong {
   display: block;
   color: #172554;
@@ -497,6 +501,51 @@ textarea {
 
 .draft-card p {
   font-size: 0.9rem;
+}
+
+.suggestion-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.suggestion-card {
+  display: grid;
+  gap: 10px;
+}
+
+.suggestion-card.accepted {
+  border-color: rgba(16, 185, 129, 0.24);
+  background: #ecfdf5;
+}
+
+.suggestion-card.dismissed {
+  opacity: 0.68;
+}
+
+.review-status {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.review-status.accepted {
+  color: #047857;
+}
+
+.review-status.dismissed {
+  color: #64748b;
+}
+
+.revision-strip {
+  border: 1px dashed var(--line-strong);
+  border-radius: 20px;
+  background: rgba(238, 242, 255, 0.58);
+  padding: 14px;
+}
+
+.revision-strip span {
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .safety-panel {
@@ -619,6 +668,7 @@ textarea {
   .hero,
   .workspace,
   .variant-grid,
+  .suggestion-grid,
   .voice-editor-grid {
     grid-template-columns: 1fr;
   }

@@ -36,6 +36,34 @@ export type StyleProfile = {
   updated_at: string;
 };
 
+export type StyleGuideRevision = {
+  id: number;
+  creator_id: number;
+  summary: string;
+  tone: string;
+  hooks: string;
+  rhythm: string;
+  vocabulary: string;
+  emoji_hashtag_habits: string;
+  cta_habits: string;
+  formatting: string;
+  avoid_rules: string;
+  reason: string;
+  created_at: string;
+};
+
+export type VoiceSuggestion = {
+  id: number;
+  creator_id: number;
+  source_draft_id?: number | null;
+  target_field: string;
+  suggestion: string;
+  rationale: string;
+  status: "pending" | "accepted" | "dismissed";
+  created_at: string;
+  updated_at: string;
+};
+
 export type DraftVariant = {
   label: string;
   text: string;

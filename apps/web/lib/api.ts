@@ -4,7 +4,9 @@ import type {
   DraftFormat,
   ImportedPost,
   Platform,
+  StyleGuideRevision,
   StyleProfile,
+  VoiceSuggestion,
 } from "@/types/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -113,6 +115,31 @@ export function updateStyle(creatorId: number, payload: StylePayload) {
   return request<StyleProfile>(`/api/profiles/${creatorId}/style`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function listStyleRevisions(creatorId: number) {
+  return request<StyleGuideRevision[]>(`/api/profiles/${creatorId}/style/revisions`);
+}
+
+export function listVoiceSuggestions(creatorId: number) {
+  return request<VoiceSuggestion[]>(`/api/profiles/${creatorId}/style/suggestions`);
+}
+
+export function reviewFeedbackForSuggestions(creatorId: number) {
+  return request<VoiceSuggestion[]>(`/api/profiles/${creatorId}/style/suggestions/review`, {
+    method: "POST",
+  });
+}
+
+export function decideVoiceSuggestion(
+  creatorId: number,
+  suggestionId: number,
+  decision: "accepted" | "dismissed",
+) {
+  return request<VoiceSuggestion>(`/api/profiles/${creatorId}/style/suggestions/${suggestionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ decision }),
   });
 }
 

@@ -2,7 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import CreatorCreate, CreatorProfile, CreatorRead, Draft, ImportedPost, StyleProfile, utc_now
+from app.models import (
+    CreatorCreate,
+    CreatorProfile,
+    CreatorRead,
+    Draft,
+    ImportedPost,
+    StyleGuideRevision,
+    StyleProfile,
+    VoiceSuggestion,
+    utc_now,
+)
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
@@ -79,7 +89,7 @@ def delete_profile(creator_id: int, session: Session = Depends(get_session)) -> 
 
 
 def delete_workspace_records(session: Session, creator_id: int) -> None:
-    for model in (ImportedPost, StyleProfile, Draft):
+    for model in (ImportedPost, StyleProfile, StyleGuideRevision, VoiceSuggestion, Draft):
         records = session.exec(select(model).where(model.creator_id == creator_id)).all()
         for record in records:
             session.delete(record)

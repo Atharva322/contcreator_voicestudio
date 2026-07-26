@@ -9,14 +9,27 @@ import {
   deleteProfile,
   getStyle,
   importPosts,
+  decideVoiceSuggestion,
+  listStyleRevisions,
   listDrafts,
   listImportedPosts,
   listProfiles,
+  listVoiceSuggestions,
+  reviewFeedbackForSuggestions,
   updateDraftFeedback,
   updateProfile,
   updateStyle,
 } from "@/lib/api";
-import type { CreatorProfile, Draft, DraftFormat, ImportedPost, Platform, StyleProfile } from "@/types/api";
+import type {
+  CreatorProfile,
+  Draft,
+  DraftFormat,
+  ImportedPost,
+  Platform,
+  StyleGuideRevision,
+  StyleProfile,
+  VoiceSuggestion,
+} from "@/types/api";
 
 const samplePosts = `Building a content system is less about posting more and more about making your point impossible to miss.
 
@@ -51,6 +64,8 @@ export default function Home() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [importedPosts, setImportedPosts] = useState<ImportedPost[]>([]);
+  const [voiceSuggestions, setVoiceSuggestions] = useState<VoiceSuggestion[]>([]);
+  const [styleRevisions, setStyleRevisions] = useState<StyleGuideRevision[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Record<number, string>>({});
   const [feedbackNotes, setFeedbackNotes] = useState<Record<number, string>>({});
   const [status, setStatus] = useState<string>("");
@@ -93,6 +108,7 @@ export default function Home() {
   const canAnalyzeStyle = hasProfile && hasEnoughPosts;
   const canGenerateDraft = hasProfile && hasStyle && draftForm.topic.trim().length > 0;
   const canSaveProfile = hasProfile && profileForm.name.trim().length > 0;
+  const pendingSuggestions = voiceSuggestions.filter((suggestion) => suggestion.status === "pending");
   const nextAction = getNextAction(hasProfile, hasEnoughPosts, hasStyle, hasDrafts);
 
   useEffect(() => {
@@ -127,6 +143,7 @@ export default function Home() {
     refreshStyle(creatorId);
     refreshImportedPosts(creatorId);
     refreshDrafts(creatorId);
+    refreshVoiceLearning(creatorId);
   }
 
   async function refreshImportedPosts(creatorId: number) {
@@ -147,6 +164,20 @@ export default function Home() {
     }
   }
 
+  async function refreshVoiceLearning(creatorId: number) {
+    try {
+      const [suggestions, revisions] = await Promise.all([
+        listVoiceSuggestions(creatorId),
+        listStyleRevisions(creatorId),
+      ]);
+      setVoiceSuggestions(suggestions);
+      setStyleRevisions(revisions);
+    } catch {
+      setVoiceSuggestions([]);
+      setStyleRevisions([]);
+    }
+  }
+
   async function handleCreateProfile() {
     runAction(async () => {
       const profile = await createProfile({
@@ -160,6 +191,8 @@ export default function Home() {
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
+      setVoiceSuggestions([]);
+      setStyleRevisions([]);
       setStatus("Creator profile created. Add writing samples next.");
     });
   }
@@ -198,6 +231,8 @@ export default function Home() {
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
+      setVoiceSuggestions([]);
+      setStyleRevisions([]);
       setSelectedVariant({});
       setFeedbackNotes({});
       setStatus("Workspace data cleared for this profile.");
@@ -218,6 +253,8 @@ export default function Home() {
       setDraft(null);
       setDrafts([]);
       setImportedPosts([]);
+      setVoiceSuggestions([]);
+      setStyleRevisions([]);
       setSelectedVariant({});
       setFeedbackNotes({});
       if (remaining[0]) {
@@ -257,6 +294,7 @@ export default function Home() {
       const updated = await updateStyle(activeId, styleForm);
       setStyle(updated);
       setStyleForm(styleToForm(updated));
+      await refreshVoiceLearning(activeId);
       setStatus("Voice guide saved. Future drafts will use these edited instructions.");
     });
   }
@@ -300,6 +338,26 @@ export default function Home() {
         setDraft(updated);
       }
       setStatus(`Saved ${rating}/5 feedback for this draft.`);
+    });
+  }
+
+  async function handleReviewFeedbackSuggestions() {
+    if (!activeId) return setError("Select a profile before reviewing feedback.");
+    if (!style) return setError("Analyze the voice before reviewing feedback.");
+    runAction(async () => {
+      const suggestions = await reviewFeedbackForSuggestions(activeId);
+      setVoiceSuggestions(suggestions);
+      setStatus("Feedback reviewed. New voice-guide suggestions are waiting for approval.");
+    });
+  }
+
+  async function handleSuggestionDecision(suggestionId: number, decision: "accepted" | "dismissed") {
+    if (!activeId) return setError("Select a profile before reviewing suggestions.");
+    runAction(async () => {
+      await decideVoiceSuggestion(activeId, suggestionId, decision);
+      await refreshStyle(activeId);
+      await refreshVoiceLearning(activeId);
+      setStatus(decision === "accepted" ? "Suggestion accepted and added to the voice guide." : "Suggestion dismissed.");
     });
   }
 
@@ -753,6 +811,75 @@ export default function Home() {
             </div>
           </section>
 
+          <section className="studio-card stack">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Voice learning loop</span>
+                <h2>Feedback suggestions</h2>
+                <p>
+                  Turn draft ratings and notes into proposed voice-guide edits. Nothing changes until
+                  you approve a suggestion.
+                </p>
+              </div>
+              <span className="status-pill">{pendingSuggestions.length} pending</span>
+            </div>
+
+            <div className="row">
+              <button className="button secondary" disabled={!hasStyle || !hasDrafts} onClick={handleReviewFeedbackSuggestions}>
+                Review feedback
+              </button>
+              {!hasDrafts && <span className="hint">Generate and rate drafts first.</span>}
+              {hasDrafts && !hasStyle && <span className="hint">Analyze the voice before learning from feedback.</span>}
+            </div>
+
+            {voiceSuggestions.length === 0 && (
+              <div className="empty-state">
+                <strong>No suggestions yet</strong>
+                <p>Save ratings or notes on drafts, then run feedback review.</p>
+              </div>
+            )}
+
+            <div className="suggestion-grid">
+              {voiceSuggestions.slice(0, 6).map((suggestion) => (
+                <article className={`suggestion-card ${suggestion.status}`} key={suggestion.id}>
+                  <div className="row between">
+                    <span className="tag">{fieldLabel(suggestion.target_field)}</span>
+                    <span className={`review-status ${suggestion.status}`}>{suggestion.status}</span>
+                  </div>
+                  <strong>{suggestion.suggestion}</strong>
+                  <p>{suggestion.rationale}</p>
+                  {suggestion.status === "pending" && (
+                    <div className="row">
+                      <button
+                        className="button compact secondary"
+                        onClick={() => handleSuggestionDecision(suggestion.id, "accepted")}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="button compact ghost"
+                        onClick={() => handleSuggestionDecision(suggestion.id, "dismissed")}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+
+            {styleRevisions.length > 0 && (
+              <div className="revision-strip">
+                <strong>Recent guide revisions</strong>
+                {styleRevisions.slice(0, 4).map((revision) => (
+                  <span key={revision.id}>
+                    {revision.reason} · {new Date(revision.created_at).toLocaleString()}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="studio-card compact-section" id="voice">
             <div>
               <span className="section-kicker">Voice profile</span>
@@ -881,6 +1008,21 @@ function VoiceField({
       <textarea value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
+}
+
+function fieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    summary: "Summary",
+    tone: "Tone",
+    hooks: "Hooks",
+    rhythm: "Rhythm",
+    vocabulary: "Vocabulary",
+    emoji_hashtag_habits: "Emoji / hashtags",
+    cta_habits: "CTA habits",
+    formatting: "Formatting",
+    avoid_rules: "Avoid rules",
+  };
+  return labels[field] || field;
 }
 
 function DraftSafetyPanel({ draft, compact = false }: { draft: Draft; compact?: boolean }) {
