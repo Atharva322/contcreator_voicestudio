@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from app.connectors.instagram import InstagramExportConnector
 from app.connectors.manual import ManualImportConnector
 from app.database import get_session
 from app.models import CreatorProfile, ImportPostsRequest, ImportPostsResponse, ImportedPost
@@ -19,7 +20,7 @@ def import_posts(
     if not creator:
         raise HTTPException(status_code=404, detail="Creator profile not found")
 
-    connector = ManualImportConnector(platform=payload.platform.value, source=payload.source)
+    connector = connector_for_import(payload.platform.value, payload.source)
     connector_posts = connector.import_posts(payload.raw_posts)
     existing = list(session.exec(select(ImportedPost).where(ImportedPost.creator_id == creator_id)).all())
     accepted_texts, skipped = dedupe_posts({post.text for post in existing}, [post.text for post in connector_posts])
@@ -51,3 +52,9 @@ def list_imported_posts(creator_id: int, session: Session = Depends(get_session)
             .order_by(ImportedPost.created_at.desc())
         ).all()
     )
+
+
+def connector_for_import(platform: str, source: str) -> ManualImportConnector | InstagramExportConnector:
+    if platform == "instagram" and source in {"instagram_export", "meta_export"}:
+        return InstagramExportConnector()
+    return ManualImportConnector(platform=platform, source=source)

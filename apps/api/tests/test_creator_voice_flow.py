@@ -132,6 +132,33 @@ def test_style_analysis_requires_three_posts(client: TestClient) -> None:
     assert "Import at least 3 posts" in style.json()["detail"]
 
 
+def test_instagram_export_connector_imports_captions(client: TestClient) -> None:
+    creator = create_creator(client)
+    export_payload = """
+{
+  "ig_media": [
+    {"title": "First exported caption about creator systems."},
+    {"string_map_data": {"Caption": {"value": "Second exported caption with a stronger hook."}}},
+    {"caption": "Third exported caption that should be analyzed later."}
+  ]
+}
+""".strip()
+    imported = client.post(
+        f"/api/profiles/{creator['id']}/imports",
+        json={
+            "platform": "instagram",
+            "source": "instagram_export",
+            "raw_posts": export_payload,
+        },
+    )
+
+    assert imported.status_code == 200
+    body = imported.json()
+    assert body["imported"] == 3
+    assert all(post["platform"] == "instagram" for post in body["posts"])
+    assert all(post["source"] == "instagram_export" for post in body["posts"])
+
+
 def test_draft_generation_requires_style_profile(client: TestClient) -> None:
     creator = create_creator(client)
     import_demo_posts(client, creator["id"])
