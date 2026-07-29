@@ -80,6 +80,7 @@ export default function Home() {
 
   const [importForm, setImportForm] = useState({
     platform: "x" as Platform,
+    source: "manual",
     raw_posts: samplePosts,
   });
 
@@ -270,7 +271,7 @@ export default function Home() {
       const result = await importPosts(activeId, {
         platform: importForm.platform,
         raw_posts: importForm.raw_posts,
-        source: "manual",
+        source: importForm.source,
       });
       await refreshImportedPosts(activeId);
       setStatus(`Imported ${result.imported} samples. Skipped ${result.skipped} duplicates or empty items.`);
@@ -680,7 +681,11 @@ export default function Home() {
                 <select
                   value={importForm.platform}
                   onChange={(event) =>
-                    setImportForm({ ...importForm, platform: event.target.value as Platform })
+                    setImportForm({
+                      ...importForm,
+                      platform: event.target.value as Platform,
+                      source: event.target.value === "instagram" ? importForm.source : "manual",
+                    })
                   }
                 >
                   <option value="x">X writing samples</option>
@@ -688,9 +693,22 @@ export default function Home() {
                 </select>
               </div>
               <div className="field">
-                <label>Selected profile</label>
-                <input value={activeProfile?.name || "None"} readOnly />
+                <label>Import format</label>
+                <select
+                  value={importForm.source}
+                  onChange={(event) => setImportForm({ ...importForm, source: event.target.value })}
+                >
+                  <option value="manual">Manual paste / CSV / JSON</option>
+                  <option value="instagram_export" disabled={importForm.platform !== "instagram"}>
+                    Instagram export JSON / CSV
+                  </option>
+                </select>
               </div>
+            </div>
+
+            <div className="field">
+              <label>Selected profile</label>
+              <input value={activeProfile?.name || "None"} readOnly />
             </div>
 
             <textarea

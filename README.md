@@ -45,6 +45,7 @@ OpenAI     Optional style extraction and draft generation
 - `FastAPI` API with profile, import, style, draft, feedback, and admin routes.
 - `SQLModel` + SQLite for local storage.
 - Manual import connector for pasted text, CSV, or JSON.
+- Instagram export connector for local Meta/Instagram export JSON or CSV captions.
 - Editable style profiles, voice suggestions, and style-guide revision history.
 - Placeholder X and Instagram connector classes for future OAuth work.
 - OpenAI wrapper with heuristic fallbacks when no API key is configured.
@@ -55,6 +56,7 @@ OpenAI     Optional style extraction and draft generation
 - Lighter futuristic creator-studio interface.
 - Draft generation prioritized as the main workspace.
 - Manual import only; no fake social connection cards yet.
+- Instagram export JSON/CSV can be imported through the same samples form.
 - Draft history, copy buttons, feedback notes, and 1-5 ratings.
 - Feedback suggestion inbox with accept/dismiss controls.
 - Editable voice guide with manual guardrails.
@@ -221,6 +223,7 @@ Current backend tests cover:
 - Local personal/SaaS-demo tool.
 - Writing-style voice only; no audio narration yet.
 - Manual X and Instagram sample imports.
+- Instagram export-file parsing is supported; live OAuth import is still deferred.
 - Copy/export drafts only; no direct publishing.
 - OpenAI generation when configured, heuristic fallback otherwise.
 
