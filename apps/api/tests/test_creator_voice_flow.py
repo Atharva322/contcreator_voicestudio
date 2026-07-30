@@ -72,6 +72,9 @@ def test_full_creator_voice_happy_path(client: TestClient) -> None:
     imported = import_demo_posts(client, creator_id)
     assert imported["imported"] == 3
     assert imported["skipped"] == 0
+    assert all(post["include_in_analysis"] is True for post in imported["posts"])
+    assert all(isinstance(post["quality_score"], int) for post in imported["posts"])
+    assert any("x_compact" in post["quality_labels"] for post in imported["posts"])
 
     posts = client.get(f"/api/profiles/{creator_id}/imports")
     assert posts.status_code == 200
@@ -139,7 +142,7 @@ def test_instagram_export_connector_imports_captions(client: TestClient) -> None
   "ig_media": [
     {"title": "First exported caption about creator systems."},
     {"string_map_data": {"Caption": {"value": "Second exported caption with a stronger hook."}}},
-    {"caption": "Third exported caption that should be analyzed later."}
+    {"caption": "Third exported caption that should be analyzed later because it has enough context, a useful creator lesson, and a simple save this call to action."}
   ]
 }
 """.strip()
@@ -157,6 +160,9 @@ def test_instagram_export_connector_imports_captions(client: TestClient) -> None
     assert body["imported"] == 3
     assert all(post["platform"] == "instagram" for post in body["posts"])
     assert all(post["source"] == "instagram_export" for post in body["posts"])
+    assert all(post["include_in_analysis"] is True for post in body["posts"])
+    assert any("instagram_caption_depth" in post["quality_labels"] for post in body["posts"])
+    assert all(isinstance(post["quality_warnings"], list) for post in body["posts"])
 
 
 def test_draft_generation_requires_style_profile(client: TestClient) -> None:

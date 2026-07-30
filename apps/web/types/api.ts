@@ -19,6 +19,10 @@ export type ImportedPost = {
   platform: Platform;
   text: string;
   source: string;
+  quality_score: number;
+  quality_labels: string[];
+  quality_warnings: string[];
+  include_in_analysis: boolean;
   created_at: string;
 };
 

@@ -9,6 +9,7 @@ The app is designed as a polished SaaS-style demo, but runs locally for now. It 
 - Create and manage creator/brand profiles.
 - Import writing samples manually from X or Instagram.
 - Normalize and deduplicate imported samples.
+- Score imported samples with quality labels, warnings, and analysis-inclusion flags.
 - Analyze samples into a visible creator voice profile.
 - Edit the learned voice guide with user-approved guardrails.
 - Generate three draft variants for a new topic.
@@ -46,6 +47,7 @@ OpenAI     Optional style extraction and draft generation
 - `SQLModel` + SQLite for local storage.
 - Manual import connector for pasted text, CSV, or JSON.
 - Instagram export connector for local Meta/Instagram export JSON or CSV captions.
+- Import quality metadata on every sample: `quality_score`, `quality_labels`, `quality_warnings`, and `include_in_analysis`.
 - Editable style profiles, voice suggestions, and style-guide revision history.
 - Placeholder X and Instagram connector classes for future OAuth work.
 - OpenAI wrapper with heuristic fallbacks when no API key is configured.
@@ -57,6 +59,7 @@ OpenAI     Optional style extraction and draft generation
 - Draft generation prioritized as the main workspace.
 - Manual import only; no fake social connection cards yet.
 - Instagram export JSON/CSV can be imported through the same samples form.
+- Recent samples show quality scores and quick quality tags.
 - Draft history, copy buttons, feedback notes, and 1-5 ratings.
 - Feedback suggestion inbox with accept/dismiss controls.
 - Editable voice guide with manual guardrails.
@@ -213,6 +216,7 @@ npm --prefix apps/web run build
 Current backend tests cover:
 
 - Full profile -> import -> analyze -> draft -> feedback flow.
+- Import quality metadata for X and Instagram samples.
 - Style analysis requiring at least 3 samples.
 - Draft generation requiring an analyzed voice profile.
 - Editable voice guide updates and feedback-suggestion approval flow.

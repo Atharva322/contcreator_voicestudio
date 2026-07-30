@@ -6,6 +6,7 @@ from app.connectors.manual import ManualImportConnector
 from app.database import get_session
 from app.models import CreatorProfile, ImportPostsRequest, ImportPostsResponse, ImportedPost
 from app.services.normalization import dedupe_posts
+from app.services.post_quality import score_imported_post
 
 router = APIRouter(prefix="/api/profiles/{creator_id}/imports", tags=["imports"])
 
@@ -25,15 +26,21 @@ def import_posts(
     existing = list(session.exec(select(ImportedPost).where(ImportedPost.creator_id == creator_id)).all())
     accepted_texts, skipped = dedupe_posts({post.text for post in existing}, [post.text for post in connector_posts])
 
-    posts = [
-        ImportedPost(
-            creator_id=creator_id,
-            platform=payload.platform.value,
-            text=text,
-            source=payload.source,
+    posts = []
+    for text in accepted_texts:
+        quality = score_imported_post(text, payload.platform.value)
+        posts.append(
+            ImportedPost(
+                creator_id=creator_id,
+                platform=payload.platform.value,
+                text=text,
+                source=payload.source,
+                quality_score=int(quality["quality_score"]),
+                quality_labels=list(quality["quality_labels"]),
+                quality_warnings=list(quality["quality_warnings"]),
+                include_in_analysis=True,
+            )
         )
-        for text in accepted_texts
-    ]
     for post in posts:
         session.add(post)
     session.commit()

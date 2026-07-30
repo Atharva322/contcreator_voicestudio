@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
+from sqlalchemy import Column, JSON
 from sqlmodel import Field as SQLField
 from sqlmodel import SQLModel
 
@@ -41,6 +42,10 @@ class ImportedPost(SQLModel, table=True):
     source_url: str | None = None
     external_id: str | None = SQLField(default=None, index=True)
     posted_at: datetime | None = None
+    quality_score: int = 100
+    quality_labels: list[str] = SQLField(default_factory=list, sa_column=Column(JSON))
+    quality_warnings: list[str] = SQLField(default_factory=list, sa_column=Column(JSON))
+    include_in_analysis: bool = True
     created_at: datetime = SQLField(default_factory=utc_now)
 
 

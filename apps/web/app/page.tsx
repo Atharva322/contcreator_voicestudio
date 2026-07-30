@@ -736,8 +736,23 @@ export default function Home() {
               )}
               {importedPosts.slice(0, 3).map((post) => (
                 <article className="mini-card" key={post.id}>
-                  <span className="tag">{post.platform}</span>
+                  <div className="row between">
+                    <span className="tag">{post.platform}</span>
+                    <span className={`quality-pill ${qualityTone(post.quality_score)}`}>
+                      {post.quality_score}/100
+                    </span>
+                  </div>
                   <p>{post.text}</p>
+                  <div className="quality-tags">
+                    {post.quality_labels.slice(0, 3).map((label) => (
+                      <span key={label}>{label.replaceAll("_", " ")}</span>
+                    ))}
+                    {post.quality_warnings.slice(0, 2).map((warning) => (
+                      <span className="warning" key={warning}>
+                        {warning.replaceAll("_", " ")}
+                      </span>
+                    ))}
+                  </div>
                 </article>
               ))}
             </div>
@@ -1041,6 +1056,12 @@ function fieldLabel(field: string) {
     avoid_rules: "Avoid rules",
   };
   return labels[field] || field;
+}
+
+function qualityTone(score: number) {
+  if (score >= 75) return "good";
+  if (score >= 50) return "review";
+  return "weak";
 }
 
 function DraftSafetyPanel({ draft, compact = false }: { draft: Draft; compact?: boolean }) {

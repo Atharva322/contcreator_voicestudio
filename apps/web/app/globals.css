@@ -588,6 +588,51 @@ textarea {
   -webkit-line-clamp: 3;
 }
 
+.quality-pill {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.quality-pill.good {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.quality-pill.review {
+  color: #c2410c;
+  background: #fff7ed;
+}
+
+.quality-pill.weak {
+  color: #9f1239;
+  background: #fff1f2;
+}
+
+.quality-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.quality-tags span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: #ffffff;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quality-tags .warning {
+  border-color: rgba(249, 115, 22, 0.24);
+  color: #c2410c;
+  background: #fff7ed;
+}
+
 .voice-editor-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
