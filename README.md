@@ -180,18 +180,50 @@ Backend environment file:
 cp apps/api/.env.example apps/api/.env
 ```
 
+For real OpenAI-powered style extraction and draft generation, add your key to the local backend env file:
+
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+DATABASE_URL=sqlite:///./creator_voice.db
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+Do not commit `apps/api/.env`. It contains secrets and is intentionally ignored by git.
+
 Frontend environment file:
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
 
+Frontend local env:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+Do not commit `apps/web/.env.local`.
+
 Important variables:
 
-- `OPENAI_API_KEY` - optional; without it, local heuristic fallbacks are used.
+- `OPENAI_API_KEY` - enables OpenAI style extraction and draft generation; without it, local heuristic fallbacks are used.
 - `OPENAI_MODEL` - defaults to `gpt-4o-mini`.
-- `DATABASE_URL` - defaults to local SQLite.
+- `DATABASE_URL` - keep this local for now; defaults to `sqlite:///./creator_voice.db`.
 - `NEXT_PUBLIC_API_BASE_URL` - defaults to `http://localhost:8000`.
+
+### Local Database
+
+The app is intentionally using local SQLite for now. You do not need a production database URL unless the project becomes deployed or multi-user.
+
+Local SQLite is enough for:
+
+- Personal/local demos.
+- Imported writing samples.
+- Voice profiles and guide revisions.
+- Draft history and feedback.
+
+If a production database is needed later, add a separate deployment-only env file or hosting secret instead of committing it to git.
 
 ## Tests and Validation
 
