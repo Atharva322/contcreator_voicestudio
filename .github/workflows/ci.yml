@@ -37,3 +37,33 @@ jobs:
         run: npm --prefix apps/web run test
       - name: Build frontend
         run: npm --prefix apps/web run build
+
+  deployment-foundation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: creator
+          POSTGRES_PASSWORD: creator
+          POSTGRES_DB: creator_voice
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U creator -d creator_voice"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: python -m pip install -r apps/api/requirements.txt
+      - name: Run Postgres migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://creator:creator@localhost:5432/creator_voice
+        run: python -m alembic -c apps/api/alembic.ini upgrade head
+      - name: Build API image
+        run: docker build -f apps/api/Dockerfile -t creator-voice-api:test .

@@ -1,0 +1,17 @@
+.git
+.venv
+venv
+node_modules
+apps/web/node_modules
+apps/web/.next
+__pycache__
+*.pyc
+.pytest_cache
+.test-tmp
+*.db
+*.sqlite
+.env
+.env.local
+apps/api/.env
+apps/web/.env.local
+api-smoke.*.log

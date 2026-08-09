@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 
 from app.connectors.instagram import InstagramExportConnector
 from app.connectors.manual import ManualImportConnector
+from app.config import get_settings
 from app.database import get_session
 from app.models import CreatorProfile, ImportInclusionUpdate, ImportPostsRequest, ImportPostsResponse, ImportedPost
 from app.services.normalization import dedupe_posts
@@ -20,6 +21,8 @@ def import_posts(
     creator = session.get(CreatorProfile, creator_id)
     if not creator:
         raise HTTPException(status_code=404, detail="Creator profile not found")
+    if len(payload.raw_posts) > get_settings().max_import_chars:
+        raise HTTPException(status_code=413, detail="Import payload is too large")
 
     connector = connector_for_import(payload.platform.value, payload.source)
     connector_posts = connector.import_posts(payload.raw_posts)

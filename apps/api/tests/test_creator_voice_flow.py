@@ -67,6 +67,9 @@ def test_full_creator_voice_happy_path(client: TestClient) -> None:
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
+    ready = client.get("/api/ready")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "ready"
 
     creator = create_creator(client)
     creator_id = creator["id"]
@@ -183,6 +186,20 @@ def test_cross_creator_import_inclusion_update_returns_404(client: TestClient) -
     )
 
     assert response.status_code == 404
+
+
+def test_oversized_import_payload_is_rejected(client: TestClient) -> None:
+    creator = create_creator(client)
+    response = client.post(
+        f"/api/profiles/{creator['id']}/imports",
+        json={
+            "platform": "x",
+            "source": "test",
+            "raw_posts": "x" * 200_001,
+        },
+    )
+
+    assert response.status_code == 413
 
 
 def test_instagram_export_connector_imports_captions(client: TestClient) -> None:

@@ -338,6 +338,8 @@ Current backend tests cover:
 
 ## Future Changes
 
+Deployment foundation docs live in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/RUNBOOK.md`](docs/RUNBOOK.md). They cover the optional single-instance hosted-demo path without selecting a hosting vendor.
+
 Near-term improvements that can be added without changing the core V1 algorithm:
 
 - Improve the editable voice guide with saved presets, reset-to-analysis, and change history.
