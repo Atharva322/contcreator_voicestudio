@@ -8,6 +8,9 @@
     "lint:web": "npm --prefix apps/web run lint",
     "typecheck:web": "npm --prefix apps/web run typecheck",
     "dev:api": "python -m uvicorn app.main:app --app-dir apps/api --reload --port 8000",
+    "test:api": "python -m pytest apps/api/tests -q",
+    "smoke:api": "python scripts/smoke_test.py",
+    "verify": "node scripts/verify.mjs",
     "demo:seed": "python scripts/seed_demo.py",
     "dev:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1"
   }

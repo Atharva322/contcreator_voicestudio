@@ -124,17 +124,29 @@ flowchart TD
 
 ## Run Locally
 
-Install backend dependencies:
+### Prerequisites
+
+| Tool | Supported version | Notes |
+| --- | --- | --- |
+| Python | 3.12 | Pinned in `.python-version`; used by CI. |
+| Node.js | 22.x | Pinned in `.nvmrc`; enforced by the web package `engines` field. |
+| npm | Bundled with Node 22 | Use `npm ci` for reproducible frontend installs. |
+
+### Bootstrap
+
+macOS/Linux:
 
 ```bash
-python -m pip install -r apps/api/requirements.txt
+sh scripts/bootstrap.sh
 ```
 
-Install frontend dependencies:
+Windows PowerShell:
 
-```bash
-npm --prefix apps/web install
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 ```
+
+Bootstrap creates `.venv` if needed, installs backend dependencies, installs frontend dependencies from `apps/web/package-lock.json`, and copies env examples only when local env files do not already exist.
 
 Start the API:
 
@@ -153,6 +165,14 @@ Open:
 ```text
 http://localhost:3000
 ```
+
+Run all local validation checks:
+
+```bash
+npm run verify
+```
+
+`verify` runs backend tests, frontend typecheck, and frontend production build.
 
 ### One-command Windows launcher
 
@@ -180,6 +200,8 @@ Backend environment file:
 cp apps/api/.env.example apps/api/.env
 ```
 
+The bootstrap scripts do this automatically when `apps/api/.env` does not already exist.
+
 For real OpenAI-powered style extraction and draft generation, add your key to the local backend env file:
 
 ```env
@@ -196,6 +218,8 @@ Frontend environment file:
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
+
+The bootstrap scripts do this automatically when `apps/web/.env.local` does not already exist.
 
 Frontend local env:
 
@@ -230,7 +254,7 @@ If a production database is needed later, add a separate deployment-only env fil
 Run backend tests:
 
 ```bash
-$env:PYTHONPATH="apps/api"; pytest apps/api/tests -q
+npm run test:api
 ```
 
 Run frontend typecheck:
@@ -244,6 +268,23 @@ Run frontend production build:
 ```bash
 npm --prefix apps/web run build
 ```
+
+Run the same core checks together:
+
+```bash
+npm run verify
+```
+
+Run the live HTTP smoke test after starting the API:
+
+```bash
+npm run dev:api
+npm run smoke:api
+```
+
+The smoke test validates `/api/health`, profile creation, importing three samples, no-key style analysis, three draft variants, feedback, and profile deletion. Set `API_BASE_URL` if your API is not running at `http://localhost:8000`.
+
+CI runs backend tests and frontend typecheck/build on pushes to `main` and on pull requests. No `OPENAI_API_KEY` is required; the default validation path uses deterministic heuristic fallback behavior.
 
 Current backend tests cover:
 

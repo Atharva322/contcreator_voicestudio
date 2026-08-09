@@ -2,6 +2,9 @@
   "name": "@creator-voice-studio/web",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
