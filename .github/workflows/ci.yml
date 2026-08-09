@@ -33,5 +33,7 @@ jobs:
         run: npm ci --prefix apps/web
       - name: Typecheck frontend
         run: npm --prefix apps/web run typecheck
+      - name: Test frontend
+        run: npm --prefix apps/web run test
       - name: Build frontend
         run: npm --prefix apps/web run build
