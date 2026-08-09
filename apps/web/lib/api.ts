@@ -84,6 +84,17 @@ export function listImportedPosts(creatorId: number) {
   return request<ImportedPost[]>(`/api/profiles/${creatorId}/imports`);
 }
 
+export function updateImportedPostInclusion(
+  creatorId: number,
+  postId: number,
+  includeInAnalysis: boolean,
+) {
+  return request<ImportedPost>(`/api/profiles/${creatorId}/imports/${postId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ include_in_analysis: includeInAnalysis }),
+  });
+}
+
 export function analyzeStyle(creatorId: number) {
   return request<StyleProfile>(`/api/profiles/${creatorId}/style/analyze`, {
     method: "POST",

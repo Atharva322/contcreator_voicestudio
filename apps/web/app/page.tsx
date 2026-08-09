@@ -17,6 +17,7 @@ import {
   listVoiceSuggestions,
   reviewFeedbackForSuggestions,
   updateDraftFeedback,
+  updateImportedPostInclusion,
   updateProfile,
   updateStyle,
 } from "@/lib/api";
@@ -102,11 +103,14 @@ export default function Home() {
     [profiles, activeId],
   );
   const hasProfile = Boolean(activeId);
-  const hasEnoughPosts = importedPosts.length >= 3;
+  const eligibleSampleCount = importedPosts.filter(
+    (post) => post.include_in_analysis && post.quality_score >= 50,
+  ).length;
+  const hasEnoughPosts = eligibleSampleCount >= 3;
   const hasStyle = Boolean(style);
   const hasDrafts = drafts.length > 0;
   const canImportPosts = hasProfile && importForm.raw_posts.trim().length > 0;
-  const canAnalyzeStyle = hasProfile && hasEnoughPosts;
+  const canAnalyzeStyle = hasProfile && eligibleSampleCount >= 3;
   const canGenerateDraft = hasProfile && hasStyle && draftForm.topic.trim().length > 0;
   const canSaveProfile = hasProfile && profileForm.name.trim().length > 0;
   const pendingSuggestions = voiceSuggestions.filter((suggestion) => suggestion.status === "pending");
@@ -285,6 +289,15 @@ export default function Home() {
       setStyle(data);
       setStyleForm(styleToForm(data));
       setStatus("Voice profile learned. Draft generation is ready.");
+    });
+  }
+
+  async function handleToggleImportInclusion(post: ImportedPost) {
+    if (!activeId) return setError("Create or select a profile first.");
+    runAction(async () => {
+      const updated = await updateImportedPostInclusion(activeId, post.id, !post.include_in_analysis);
+      setImportedPosts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setStatus(updated.include_in_analysis ? "Sample included in future analysis." : "Sample excluded from future analysis.");
     });
   }
 
@@ -723,13 +736,13 @@ export default function Home() {
               <button className="button secondary" disabled={!canAnalyzeStyle} onClick={handleAnalyzeStyle}>
                 Analyze voice
               </button>
-              {!hasEnoughPosts && <span className="hint">Need at least 3 samples to analyze.</span>}
+              {eligibleSampleCount < 3 && <span className="hint">Need at least 3 eligible samples to analyze.</span>}
             </div>
 
             <div className="mini-list">
               <div className="row between">
                 <strong>Recent samples</strong>
-                <span className="muted">{importedPosts.length} total</span>
+                <span className="muted">{eligibleSampleCount} eligible / {importedPosts.length} total</span>
               </div>
               {importedPosts.length === 0 && (
                 <p>Imported writing samples will appear here after you add them.</p>
@@ -738,9 +751,14 @@ export default function Home() {
                 <article className="mini-card" key={post.id}>
                   <div className="row between">
                     <span className="tag">{post.platform}</span>
-                    <span className={`quality-pill ${qualityTone(post.quality_score)}`}>
-                      {post.quality_score}/100
-                    </span>
+                    <div className="row">
+                      <button className="button compact ghost" onClick={() => handleToggleImportInclusion(post)}>
+                        {post.include_in_analysis ? "Exclude" : "Include"}
+                      </button>
+                      <span className={`quality-pill ${qualityTone(post.quality_score)}`}>
+                        {post.quality_score}/100
+                      </span>
+                    </div>
                   </div>
                   <p>{post.text}</p>
                   <div className="quality-tags">

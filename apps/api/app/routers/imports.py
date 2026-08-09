@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from app.connectors.instagram import InstagramExportConnector
 from app.connectors.manual import ManualImportConnector
 from app.database import get_session
-from app.models import CreatorProfile, ImportPostsRequest, ImportPostsResponse, ImportedPost
+from app.models import CreatorProfile, ImportInclusionUpdate, ImportPostsRequest, ImportPostsResponse, ImportedPost
 from app.services.normalization import dedupe_posts
 from app.services.post_quality import score_imported_post
 
@@ -59,6 +59,23 @@ def list_imported_posts(creator_id: int, session: Session = Depends(get_session)
             .order_by(ImportedPost.created_at.desc())
         ).all()
     )
+
+
+@router.patch("/{post_id}", response_model=ImportedPost)
+def update_imported_post_inclusion(
+    creator_id: int,
+    post_id: int,
+    payload: ImportInclusionUpdate,
+    session: Session = Depends(get_session),
+) -> ImportedPost:
+    post = session.get(ImportedPost, post_id)
+    if not post or post.creator_id != creator_id:
+        raise HTTPException(status_code=404, detail="Imported post not found")
+    post.include_in_analysis = payload.include_in_analysis
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+    return post
 
 
 def connector_for_import(platform: str, source: str) -> ManualImportConnector | InstagramExportConnector:

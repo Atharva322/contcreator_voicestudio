@@ -143,6 +143,10 @@ class ImportPostsResponse(BaseModel):
     posts: list[ImportedPost]
 
 
+class ImportInclusionUpdate(BaseModel):
+    include_in_analysis: bool
+
+
 class StyleProfileRead(BaseModel):
     creator_id: int
     summary: str

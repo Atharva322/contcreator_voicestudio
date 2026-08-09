@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.database import get_session
 from app.models import CreatorProfile, Draft, DraftCreate, DraftFeedback, DraftRead, ImportedPost, StyleProfile, utc_now
 from app.services.draft_engine import build_evidence, build_reuse_warnings, generate_drafts, parse_draft_payload, variants_to_json
+from app.services.example_retrieval import retrieve_examples
 
 router = APIRouter(prefix="/api/profiles/{creator_id}/drafts", tags=["drafts"])
 
@@ -18,24 +19,16 @@ def create_draft(creator_id: int, payload: DraftCreate, session: Session = Depen
     if not style:
         raise HTTPException(status_code=400, detail="Analyze creator style before generating drafts")
 
-    examples = list(
-        session.exec(
-            select(ImportedPost)
-            .where(ImportedPost.creator_id == creator_id)
-            .where(ImportedPost.platform == payload.platform.value)
-            .order_by(ImportedPost.created_at.desc())
-            .limit(8)
-        ).all()
-    )
-    if len(examples) < 3:
-        examples = list(
-            session.exec(
-                select(ImportedPost)
-                .where(ImportedPost.creator_id == creator_id)
-                .order_by(ImportedPost.created_at.desc())
-                .limit(8)
-            ).all()
+    posts = list(session.exec(select(ImportedPost).where(ImportedPost.creator_id == creator_id)).all())
+    examples = [
+        item.post
+        for item in retrieve_examples(
+            posts,
+            topic=payload.topic,
+            platform=payload.platform.value,
+            limit=8,
         )
+    ]
 
     variants = generate_drafts(creator, style, examples, payload)
     warnings = build_reuse_warnings(variants, examples, payload.show_reuse_warnings)

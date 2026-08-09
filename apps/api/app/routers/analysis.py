@@ -17,6 +17,7 @@ from app.models import (
     utc_now,
 )
 from app.services.feedback_suggestions import build_feedback_suggestions
+from app.services.eligibility import eligible_posts
 from app.services.style_engine import analyze_style, style_to_json
 
 router = APIRouter(prefix="/api/profiles/{creator_id}/style", tags=["style"])
@@ -27,9 +28,10 @@ def analyze_creator_style(creator_id: int, session: Session = Depends(get_sessio
     creator = session.get(CreatorProfile, creator_id)
     if not creator:
         raise HTTPException(status_code=404, detail="Creator profile not found")
-    posts = list(session.exec(select(ImportedPost).where(ImportedPost.creator_id == creator_id)).all())
+    posts = eligible_posts(list(session.exec(select(ImportedPost).where(ImportedPost.creator_id == creator_id)).all()))
     if len(posts) < 3:
-        raise HTTPException(status_code=400, detail="Import at least 3 posts before analyzing style")
+        raise HTTPException(status_code=400, detail="Import at least 3 eligible posts before analyzing style")
+    posts = sorted(posts, key=lambda post: (post.created_at, post.id or 0), reverse=True)[:40]
 
     result = analyze_style(creator, posts)
     style = session.exec(select(StyleProfile).where(StyleProfile.creator_id == creator_id)).first()

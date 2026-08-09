@@ -6,6 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.database import get_session
 from app.database import enable_sqlite_foreign_keys
 from app.main import app
+from app.services import draft_engine
 
 
 @pytest.fixture()
@@ -134,7 +135,54 @@ def test_style_analysis_requires_three_posts(client: TestClient) -> None:
 
     style = client.post(f"/api/profiles/{creator['id']}/style/analyze")
     assert style.status_code == 400
-    assert "Import at least 3 posts" in style.json()["detail"]
+    assert "Import at least 3 eligible posts" in style.json()["detail"]
+
+
+def test_analysis_counts_only_eligible_posts(client: TestClient) -> None:
+    creator = create_creator(client)
+    imported = client.post(
+        f"/api/profiles/{creator['id']}/imports",
+        json={
+            "platform": "x",
+            "source": "test",
+            "raw_posts": "\n\n".join(f"Useful creator systems sample number {index}." for index in range(10)),
+        },
+    )
+    assert imported.status_code == 200
+    posts = imported.json()["posts"]
+    for post in posts[:8]:
+        updated = client.patch(
+            f"/api/profiles/{creator['id']}/imports/{post['id']}",
+            json={"include_in_analysis": False},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["include_in_analysis"] is False
+
+    rejected = client.post(f"/api/profiles/{creator['id']}/style/analyze")
+    assert rejected.status_code == 400
+    assert "eligible posts" in rejected.json()["detail"]
+
+    enabled = client.patch(
+        f"/api/profiles/{creator['id']}/imports/{posts[0]['id']}",
+        json={"include_in_analysis": True},
+    )
+    assert enabled.status_code == 200
+    analyzed = client.post(f"/api/profiles/{creator['id']}/style/analyze")
+    assert analyzed.status_code == 200
+
+
+def test_cross_creator_import_inclusion_update_returns_404(client: TestClient) -> None:
+    creator_a = create_creator(client)
+    creator_b = create_creator(client)
+    imported = import_demo_posts(client, creator_a["id"])
+    post_id = imported["posts"][0]["id"]
+
+    response = client.patch(
+        f"/api/profiles/{creator_b['id']}/imports/{post_id}",
+        json={"include_in_analysis": False},
+    )
+
+    assert response.status_code == 404
 
 
 def test_instagram_export_connector_imports_captions(client: TestClient) -> None:
@@ -315,6 +363,74 @@ def test_feedback_suggestions_are_user_approved_before_updating_voice(client: Te
     assert revisions.status_code == 200
     assert revisions.json()
     assert revisions.json()[0]["reason"].startswith("accepted_suggestion:")
+
+
+def test_accepted_feedback_rule_reaches_next_draft_prompt(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    creator = create_creator(client)
+    creator_id = creator["id"]
+    import_demo_posts(client, creator_id)
+    assert client.post(f"/api/profiles/{creator_id}/style/analyze").status_code == 200
+
+    draft = client.post(
+        f"/api/profiles/{creator_id}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "How to make AI captions feel less generic",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+        },
+    ).json()
+    assert client.patch(
+        f"/api/profiles/{creator_id}/drafts/{draft['id']}/feedback",
+        json={
+            "selected_text": draft["variants"][0]["text"],
+            "rating": 2,
+            "feedback": "The hook felt weak and the wording sounded generic.",
+        },
+    ).status_code == 200
+    suggestions = client.post(f"/api/profiles/{creator_id}/style/suggestions/review").json()
+    hook_suggestion = next(suggestion for suggestion in suggestions if suggestion["target_field"] == "hooks")
+    vocabulary_suggestion = next(suggestion for suggestion in suggestions if suggestion["target_field"] == "vocabulary")
+    dismissed = client.patch(
+        f"/api/profiles/{creator_id}/style/suggestions/{hook_suggestion['id']}",
+        json={"decision": "dismissed"},
+    )
+    assert dismissed.status_code == 200
+    style_after_dismiss = client.get(f"/api/profiles/{creator_id}/style").json()
+    assert "Feedback rule:" not in style_after_dismiss["hooks"]
+
+    accepted = client.patch(
+        f"/api/profiles/{creator_id}/style/suggestions/{vocabulary_suggestion['id']}",
+        json={"decision": "accepted"},
+    )
+    assert accepted.status_code == 200
+
+    captured: dict[str, str] = {}
+
+    class CapturingAIClient:
+        def json_completion(self, system_prompt, user_prompt, fallback, **kwargs):
+            captured["prompt"] = user_prompt
+            return fallback
+
+    monkeypatch.setattr(draft_engine, "AIClient", CapturingAIClient)
+    next_draft = client.post(
+        f"/api/profiles/{creator_id}/drafts",
+        json={
+            "platform": "x",
+            "draft_format": "x_post",
+            "topic": "Why approved feedback should shape future drafts",
+            "audience": "builders",
+            "cta": "Save this.",
+            "length": "medium",
+            "creativity": 0.5,
+        },
+    )
+
+    assert next_draft.status_code == 200
+    assert "Feedback rule:" in captured["prompt"]
 
 
 def test_profile_admin_edit_clear_and_delete(client: TestClient) -> None:
