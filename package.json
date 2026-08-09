@@ -11,6 +11,9 @@
     "test:api": "python -m pytest apps/api/tests -q",
     "smoke:api": "python scripts/smoke_test.py",
     "verify": "node scripts/verify.mjs",
+    "db:upgrade": "python -m alembic -c apps/api/alembic.ini upgrade head",
+    "db:current": "python -m alembic -c apps/api/alembic.ini current",
+    "db:check": "python scripts/db_check.py",
     "demo:seed": "python scripts/seed_demo.py",
     "dev:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1"
   }

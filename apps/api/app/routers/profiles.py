@@ -82,7 +82,6 @@ def delete_profile(creator_id: int, session: Session = Depends(get_session)) -> 
     profile = session.get(CreatorProfile, creator_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Creator profile not found")
-    delete_workspace_records(session, creator_id)
     session.delete(profile)
     session.commit()
     return Response(status_code=204)

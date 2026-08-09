@@ -146,7 +146,7 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 ```
 
-Bootstrap creates `.venv` if needed, installs backend dependencies, installs frontend dependencies from `apps/web/package-lock.json`, and copies env examples only when local env files do not already exist.
+Bootstrap creates `.venv` if needed, installs backend dependencies, installs frontend dependencies from `apps/web/package-lock.json`, copies env examples only when local env files do not already exist, and runs database migrations.
 
 Start the API:
 
@@ -248,6 +248,32 @@ Local SQLite is enough for:
 - Draft history and feedback.
 
 If a production database is needed later, add a separate deployment-only env file or hosting secret instead of committing it to git.
+
+### Database Migrations
+
+Schema changes are versioned with Alembic. Bootstrap runs migrations automatically, but you can run them manually:
+
+```bash
+npm run db:upgrade
+npm run db:current
+npm run db:check
+```
+
+Before migrating a real local database with data you care about, copy the SQLite file as a backup. The default local database is `creator_voice.db` when `DATABASE_URL=sqlite:///./creator_voice.db`.
+
+For disposable validation, point migrations at a temporary database:
+
+```bash
+DATABASE_URL=sqlite:///./migration_check.db npm run db:upgrade
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:DATABASE_URL="sqlite:///./migration_check.db"; npm run db:upgrade
+```
+
+If `db:check` reports that the current revision is behind the migration head, run `npm run db:upgrade`. If a migration reports orphan creator-owned rows, inspect the database before retrying; the migration intentionally stops rather than guessing how to repair data.
 
 ## Tests and Validation
 

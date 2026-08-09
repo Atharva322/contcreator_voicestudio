@@ -25,6 +25,8 @@ if (-not (Test-Path "apps/web/.env.local")) {
     Copy-Item "apps/web/.env.example" "apps/web/.env.local"
 }
 
+& $PythonBin -m alembic -c apps/api/alembic.ini upgrade head
+
 Write-Host ""
 Write-Host "Bootstrap complete."
 Write-Host ""

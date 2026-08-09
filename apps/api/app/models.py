@@ -35,7 +35,7 @@ class CreatorProfile(SQLModel, table=True):
 
 class ImportedPost(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
-    creator_id: int = SQLField(index=True)
+    creator_id: int = SQLField(foreign_key="creatorprofile.id", ondelete="CASCADE", index=True)
     platform: str
     text: str
     source: str = "manual"
@@ -51,7 +51,7 @@ class ImportedPost(SQLModel, table=True):
 
 class StyleProfile(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
-    creator_id: int = SQLField(index=True, unique=True)
+    creator_id: int = SQLField(foreign_key="creatorprofile.id", ondelete="CASCADE", index=True, unique=True)
     summary: str
     tone: str
     hooks: str
@@ -68,7 +68,7 @@ class StyleProfile(SQLModel, table=True):
 
 class StyleGuideRevision(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
-    creator_id: int = SQLField(index=True)
+    creator_id: int = SQLField(foreign_key="creatorprofile.id", ondelete="CASCADE", index=True)
     summary: str
     tone: str
     hooks: str
@@ -84,7 +84,7 @@ class StyleGuideRevision(SQLModel, table=True):
 
 class VoiceSuggestion(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
-    creator_id: int = SQLField(index=True)
+    creator_id: int = SQLField(foreign_key="creatorprofile.id", ondelete="CASCADE", index=True)
     source_draft_id: int | None = SQLField(default=None, index=True)
     target_field: str
     suggestion: str
@@ -96,7 +96,7 @@ class VoiceSuggestion(SQLModel, table=True):
 
 class Draft(SQLModel, table=True):
     id: int | None = SQLField(default=None, primary_key=True)
-    creator_id: int = SQLField(index=True)
+    creator_id: int = SQLField(foreign_key="creatorprofile.id", ondelete="CASCADE", index=True)
     platform: str
     draft_format: str
     topic: str

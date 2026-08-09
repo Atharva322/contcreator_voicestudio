@@ -4,6 +4,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.database import get_session
+from app.database import enable_sqlite_foreign_keys
 from app.main import app
 
 
@@ -14,6 +15,7 @@ def client():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    enable_sqlite_foreign_keys(test_engine)
     SQLModel.metadata.create_all(test_engine)
 
     def get_test_session():

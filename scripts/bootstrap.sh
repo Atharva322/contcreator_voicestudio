@@ -27,6 +27,8 @@ if [ ! -f "apps/web/.env.local" ]; then
   cp apps/web/.env.example apps/web/.env.local
 fi
 
+"$PYTHON_BIN" -m alembic -c apps/api/alembic.ini upgrade head
+
 cat <<'EOF'
 
 Bootstrap complete.
