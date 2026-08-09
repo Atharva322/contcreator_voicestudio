@@ -39,26 +39,30 @@ Create Profile
 apps/web   Next.js creator-studio frontend
 apps/api   FastAPI backend
 SQLite     Local persistence
+Alembic    Versioned schema migrations
 OpenAI     Optional style extraction and draft generation
 ```
 
 ### Backend
 
 - `FastAPI` API with profile, import, style, draft, feedback, and admin routes.
-- `SQLModel` + SQLite for local storage.
+- `SQLModel` + SQLite for local storage, with Alembic migrations and creator-owned foreign-key integrity.
 - Manual import connector for pasted text, CSV, or JSON.
 - Instagram export connector for local Meta/Instagram export JSON or CSV captions.
 - Import quality metadata on every sample: `quality_score`, `quality_labels`, `quality_warnings`, and `include_in_analysis`.
 - Eligible learning corpus policy: included samples at or above the configured quality threshold.
+- Deterministic representative-example retrieval for draft context, using topic relevance, quality, platform match, and recency.
 - Editable style profiles, voice suggestions, and style-guide revision history.
 - Placeholder X and Instagram connector classes for future OAuth work.
-- OpenAI wrapper with heuristic fallbacks when no API key is configured.
+- OpenAI provider adapter with deterministic heuristic fallback when no API key is configured or recoverable provider/JSON/shape failures occur.
+- Health/readiness endpoints plus bounded import payloads and a simple single-instance generation rate limit for hosted demos.
 
 ### Frontend
 
 - Guided wizard layout: Profile -> Samples -> Analyze -> Draft -> Review.
 - Lighter futuristic creator-studio interface.
 - Draft generation prioritized as the main workspace.
+- Workspace shell split into typed React components under `apps/web/components/workspace`.
 - Manual import only; no fake social connection cards yet.
 - Instagram export JSON/CSV can be imported through the same samples form.
 - Recent samples show quality scores and quick quality tags.
@@ -67,6 +71,7 @@ OpenAI     Optional style extraction and draft generation
 - Feedback suggestion inbox with accept/dismiss controls.
 - Editable voice guide with manual guardrails.
 - Workspace admin controls for saving profiles, clearing workspace data, and deleting profiles.
+- Vitest coverage for initial workspace load, API failure display, and inclusion updates.
 
 ## Current Backend Flow
 
@@ -78,35 +83,37 @@ flowchart TD
     D --> E[Deduplicate Samples]
     E --> F[(SQLite: Imported Posts)]
 
-    F --> G[Analyze Style]
-    G --> H[Style Engine]
-    H --> I{OpenAI API Key?}
-    I -->|Yes| J[LLM Style Extraction]
-    I -->|No| K[Heuristic Style Fallback]
-    J --> L[(SQLite: Style Profile)]
-    K --> L
+    F --> G[Eligible Sample Policy]
+    G --> H[Analyze Style]
+    H --> I[Style Engine]
+    I --> J{Provider succeeds?}
+    J -->|Yes| K[LLM Style Extraction]
+    J -->|No| L[Heuristic Style Fallback]
+    K --> M[(SQLite: Style Profile)]
+    L --> M
 
-    L --> M[Draft Request]
-    F --> N[Retrieve Representative Examples]
-    M --> O[Draft Engine]
-    N --> O
-    O --> P{OpenAI API Key?}
-    P -->|Yes| Q[Generate 3 Draft Variants]
-    P -->|No| R[Heuristic Draft Fallback]
-    Q --> S[(SQLite: Draft History)]
-    R --> S
+    M --> N[Draft Request]
+    F --> O[Quality-aware Example Retrieval]
+    N --> P[Draft Engine]
+    O --> P
+    P --> Q{Provider succeeds?}
+    Q -->|Yes| R[Generate 3 Draft Variants]
+    Q -->|No| S[Heuristic Draft Fallback]
+    R --> T[(SQLite: Draft History)]
+    S --> T
 
-    S --> T[User Reviews / Copies / Rates]
-    T --> U[(SQLite: Feedback)]
-    U --> V[Review Feedback Suggestions]
-    V --> W{User Approves?}
-    W -->|Accept| X[(SQLite: Updated Style Profile + Revision)]
-    W -->|Dismiss| Y[(SQLite: Dismissed Suggestion)]
+    T --> U[User Reviews / Copies / Rates]
+    U --> V[(SQLite: Feedback)]
+    V --> W[Review Feedback Suggestions]
+    W --> X{User Approves?}
+    X -->|Accept| Y[(SQLite: Updated Style Profile + Revision)]
+    X -->|Dismiss| Z[(SQLite: Dismissed Suggestion)]
 ```
 
 ## API Capabilities
 
 - `GET /api/health` - health check.
+- `GET /api/ready` - readiness check for database reachability and migration state.
 - `POST /api/profiles` - create a creator profile.
 - `GET /api/profiles` - list profiles.
 - `PATCH /api/profiles/{creator_id}` - update profile metadata.
@@ -114,6 +121,7 @@ flowchart TD
 - `DELETE /api/profiles/{creator_id}` - delete profile and related local data.
 - `POST /api/profiles/{creator_id}/imports` - import manual writing samples.
 - `GET /api/profiles/{creator_id}/imports` - list imported samples.
+- `PATCH /api/profiles/{creator_id}/imports/{post_id}` - include or exclude one imported sample from future analysis.
 - `POST /api/profiles/{creator_id}/style/analyze` - analyze imported samples into a style profile.
 - `GET /api/profiles/{creator_id}/style` - fetch the current style profile.
 - `PATCH /api/profiles/{creator_id}/style` - save editable voice guide changes.
@@ -175,7 +183,7 @@ Run all local validation checks:
 npm run verify
 ```
 
-`verify` runs backend tests, frontend typecheck, and frontend production build.
+`verify` runs backend tests, frontend tests, frontend typecheck, and frontend production build.
 
 ### One-command Windows launcher
 
@@ -210,6 +218,10 @@ For real OpenAI-powered style extraction and draft generation, add your key to t
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_TIMEOUT_SECONDS=15
+MIN_ANALYSIS_QUALITY_SCORE=50
+MAX_IMPORT_CHARS=200000
+GENERATION_RATE_LIMIT_PER_MINUTE=20
 DATABASE_URL=sqlite:///./creator_voice.db
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
@@ -238,7 +250,10 @@ Important variables:
 - `OPENAI_MODEL` - defaults to `gpt-4o-mini`.
 - `OPENAI_TIMEOUT_SECONDS` - caps a single OpenAI generation attempt before falling back; defaults to `15`.
 - `MIN_ANALYSIS_QUALITY_SCORE` - minimum imported-sample quality score for style analysis and draft retrieval; defaults to `50`.
+- `MAX_IMPORT_CHARS` - maximum raw import payload length; defaults to `200000`.
+- `GENERATION_RATE_LIMIT_PER_MINUTE` - simple per-client draft-generation limit for single-instance demos; defaults to `20`.
 - `DATABASE_URL` - keep this local for now; defaults to `sqlite:///./creator_voice.db`.
+- `CORS_ORIGINS` - comma-separated allowed API origins.
 - `NEXT_PUBLIC_API_BASE_URL` - defaults to `http://localhost:8000`.
 
 ### Local Database
@@ -294,6 +309,12 @@ Run frontend typecheck:
 npm --prefix apps/web run typecheck
 ```
 
+Run frontend tests:
+
+```bash
+npm run test:web
+```
+
 Run frontend production build:
 
 ```bash
@@ -315,7 +336,7 @@ npm run smoke:api
 
 The smoke test validates `/api/health`, profile creation, importing three samples, no-key style analysis, three draft variants, feedback, and profile deletion. Set `API_BASE_URL` if your API is not running at `http://localhost:8000`.
 
-CI runs backend tests and frontend typecheck/build on pushes to `main` and on pull requests. No `OPENAI_API_KEY` is required; the default validation path uses deterministic heuristic fallback behavior.
+CI runs backend tests, frontend tests, frontend typecheck/build, SQLite migrations, Postgres migrations, and the API container build on pushes to `main` and on pull requests. No `OPENAI_API_KEY` is required; the default validation path uses deterministic heuristic fallback behavior.
 
 Current backend tests cover:
 
@@ -323,18 +344,27 @@ Current backend tests cover:
 - Import quality metadata for X and Instagram samples.
 - Style analysis requiring at least 3 eligible samples.
 - Include/exclude controls and deterministic quality-aware example retrieval.
+- Recoverable OpenAI/provider failures falling back without persisting malformed output.
 - Draft generation requiring an analyzed voice profile.
 - Editable voice guide updates and feedback-suggestion approval flow.
 - Profile edit, workspace clear, and profile delete admin actions.
+- Readiness, oversized import rejection, and deployment-foundation safeguards.
+
+Current frontend tests cover:
+
+- Initial profile workspace load.
+- API load failure display.
+- Sample inclusion/exclusion update behavior.
 
 ## V1 Scope
 
-- Local personal/SaaS-demo tool.
+- Local personal/SaaS-demo tool with optional single-instance deployment packaging.
 - Writing-style voice only; no audio narration yet.
 - Manual X and Instagram sample imports.
 - Instagram export-file parsing is supported; live OAuth import is still deferred.
 - Copy/export drafts only; no direct publishing.
-- OpenAI generation when configured, heuristic fallback otherwise.
+- OpenAI generation when configured, heuristic fallback otherwise or on recoverable provider failure.
+- SQLite locally; Postgres is supported for hosted-demo deployment through the same migrations.
 
 ## Future Changes
 
@@ -365,4 +395,4 @@ Larger expansion paths:
 
 ## Status
 
-Current state: runnable local demo shell with a polished guided frontend, FastAPI backend, SQLite persistence, admin controls, editable voice guide, draft history, feedback-to-voice learning loop, and regression tests.
+Current state: runnable and testable local-first creator voice studio with a modular Next.js frontend, FastAPI backend, Alembic-managed SQLite schema, optional OpenAI generation with resilient fallback, quality-aware learning/retrieval, regression tests, smoke testing, CI, and optional single-instance deployment docs/container support.
