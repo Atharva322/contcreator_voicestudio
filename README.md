@@ -233,6 +233,7 @@ Important variables:
 
 - `OPENAI_API_KEY` - enables OpenAI style extraction and draft generation; without it, local heuristic fallbacks are used.
 - `OPENAI_MODEL` - defaults to `gpt-4o-mini`.
+- `OPENAI_TIMEOUT_SECONDS` - caps a single OpenAI generation attempt before falling back; defaults to `15`.
 - `DATABASE_URL` - keep this local for now; defaults to `sqlite:///./creator_voice.db`.
 - `NEXT_PUBLIC_API_BASE_URL` - defaults to `http://localhost:8000`.
 

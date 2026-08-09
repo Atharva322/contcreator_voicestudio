@@ -2,7 +2,7 @@ import json
 from collections import Counter
 
 from app.models import CreatorProfile, ImportedPost
-from app.services.openai_client import AIClient
+from app.services.openai_client import AIClient, invalid_shape
 
 
 STYLE_KEYS = {
@@ -42,8 +42,20 @@ def analyze_style(creator: CreatorProfile, posts: list[ImportedPost]) -> dict[st
         "You are a brand voice strategist. Return only valid JSON.",
         prompt,
         fallback,
+        operation="style_analysis",
+        validator=validate_style_result,
     )
     return {key: str(result.get(key) or fallback[key]) for key in STYLE_KEYS}
+
+
+def validate_style_result(result: dict[str, object]) -> dict[str, str]:
+    validated: dict[str, str] = {}
+    for key in STYLE_KEYS:
+        value = result.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise invalid_shape(f"Style result is missing required key: {key}")
+        validated[key] = value.strip()
+    return validated
 
 
 def heuristic_style_profile(posts: list[ImportedPost]) -> dict[str, str]:

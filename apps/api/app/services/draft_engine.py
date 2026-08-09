@@ -1,9 +1,8 @@
 import json
-import random
 import re
 
 from app.models import CreatorProfile, DraftCreate, ImportedPost, StyleProfile
-from app.services.openai_client import AIClient
+from app.services.openai_client import AIClient, invalid_shape
 
 WORD_PATTERN = re.compile(r"[a-zA-Z0-9']+")
 
@@ -63,26 +62,45 @@ def generate_drafts(
         "You are a social content strategist. Return only valid JSON.",
         build_draft_prompt(creator, style, examples, request),
         fallback,
+        operation="draft_generation",
+        validator=lambda result: validate_draft_result(result, request),
     )
-    variants = result.get("variants", fallback["variants"])
-    if not isinstance(variants, list):
-        return fallback["variants"]
-    normalized = [
-        {
-            "label": str(item.get("label", "Variant")),
-            "text": enforce_hashtag_policy(str(item.get("text", "")), request.include_hashtags),
-            "rationale": str(item.get("rationale", "")),
-        }
-        for item in variants[:3]
-        if isinstance(item, dict)
-    ]
-    return normalized or fallback["variants"]
+    return result.get("variants", fallback["variants"])
+
+
+def validate_draft_result(result: dict[str, object], request: DraftCreate) -> dict[str, list[dict[str, str]]]:
+    variants = result.get("variants")
+    if not isinstance(variants, list) or len(variants) != 3:
+        raise invalid_shape("Draft result must contain exactly three variants")
+
+    normalized: list[dict[str, str]] = []
+    for item in variants:
+        if not isinstance(item, dict):
+            raise invalid_shape("Draft variant must be an object")
+        label = item.get("label")
+        text = item.get("text")
+        rationale = item.get("rationale")
+        if not isinstance(label, str) or not label.strip():
+            raise invalid_shape("Draft variant is missing a label")
+        if not isinstance(text, str) or not text.strip():
+            raise invalid_shape("Draft variant is missing text")
+        if not isinstance(rationale, str) or not rationale.strip():
+            raise invalid_shape("Draft variant is missing rationale")
+        normalized.append(
+            {
+                "label": label.strip(),
+                "text": enforce_hashtag_policy(text.strip(), request.include_hashtags),
+                "rationale": rationale.strip(),
+            }
+        )
+    return {"variants": normalized}
 
 
 def heuristic_drafts(creator: CreatorProfile, request: DraftCreate) -> list[dict[str, str]]:
     cta = request.cta or "What would you add?"
     endings = [cta, f"Save this if you're building in {creator.niche or 'this space'}.", "Want the next version?"]
-    random.shuffle(endings)
+    offset = sum(ord(char) for char in request.topic) % len(endings)
+    endings = endings[offset:] + endings[:offset]
     base = request.topic.strip()
 
     variants = [
